@@ -57,7 +57,7 @@ import { commentKeymap } from "./CellInput/comment_mixed_parsers.js"
 import { ScopeStateField } from "./CellInput/scopestate_statefield.js"
 import { mod_d_command } from "./CellInput/mod_d_command.js"
 import { open_bottom_right_panel } from "./BottomRightPanel.js"
-import { timeout_promise } from "../common/PlutoConnection.js"
+import { assert_not_null, timeout_promise } from "../common/PlutoConnection.js"
 import { LastFocusWasForcedEffect, tab_help_plugin } from "./CellInput/tab_help_plugin.js"
 import { useEventListener } from "../common/useEventListener.js"
 import { moveLineDown } from "../imports/CodemirrorPlutoSetup.js"
@@ -68,8 +68,7 @@ import { t } from "../common/lang.js"
 
 export const ENABLE_CM_MIXED_PARSER = window.localStorage.getItem("ENABLE_CM_MIXED_PARSER") === "true"
 export const ENABLE_CM_SPELLCHECK = window.localStorage.getItem("ENABLE_CM_SPELLCHECK") === "true"
-export const ENABLE_CM_AUTOCOMPLETE_ON_TYPE =
-    (window.localStorage.getItem("ENABLE_CM_AUTOCOMPLETE_ON_TYPE") ?? (/Mac/.test(navigator.platform) ? "true" : "false")) === "true"
+export const ENABLE_CM_AUTOCOMPLETE_ON_TYPE = (window.localStorage.getItem("ENABLE_CM_AUTOCOMPLETE_ON_TYPE") ?? "true") === "true"
 
 if (ENABLE_CM_MIXED_PARSER) {
     console.log(`YOU ENABLED THE CODEMIRROR MIXED LANGUAGE PARSER
@@ -115,7 +114,8 @@ const common_style_tags = [
     { tag: tags.logicOperator, color: "var(--cm-color-keyword)" },
     { tag: tags.controlOperator, color: "var(--cm-color-keyword)" },
     { tag: tags.bracket, color: "var(--cm-color-bracket)" },
-    // TODO: tags.self, tags.null
+    { tag: tags.self, color: "var(--cm-color-keyword)" },
+    { tag: tags.null, color: "var(--cm-color-literal)" },
 ]
 
 export const pluto_syntax_colors_julia = HighlightStyle.define(common_style_tags, {
@@ -355,13 +355,33 @@ export const CellInput = ({
         const keyMapRun = (/** @type {EditorView} */ cm) => {
             autocomplete.closeCompletion(cm)
             run(async () => {
-                // we await to prevent an out-of-sync issue
-                await on_add_after()
-
                 const new_value = cm.state.doc.toString()
                 if (new_value !== remote_code_ref.current) {
-                    on_submit()
+                    const success_promise = on_submit()
+
+                    // Wait for the dialog to maybe open.
+                    await new Promise((r) => requestAnimationFrame(r))
+
+                    // Check if there is currently the confirmation dialog open.
+                    const waiting_for_confirmation = (() => {
+                        const c = dom_node_ref.current
+                        if (!c) return false
+                        return !!c.closest("pluto-editor")?.querySelector("dialog[open].confirm-before-long-runtime")
+                    })()
+
+                    // If so...
+                    if (waiting_for_confirmation) {
+                        // ...wait for the result of the dialog. If canceled, then also cancel this.
+                        const success = await success_promise
+                        if (!success) return
+                    }
+
+                    // Why not just await success_promise?
+                    // We want to create the new cell quickly so the next keystrokes after Ctrl+Enter start writing text in the new cell, instead of the current one.
                 }
+
+                // we await to prevent an out-of-sync issue
+                await on_add_after()
             })
             return true
         }
@@ -412,10 +432,10 @@ export const CellInput = ({
                     // Corner case: block is empty after removing markdown
                     setValue6(cm, "")
                 } else {
-                    while (/\s/.test(trimmed[start])) {
+                    while (/\s/.test(assert_not_null(trimmed[start]))) {
                         ++start
                     }
-                    while (/\s/.test(trimmed[end - 1])) {
+                    while (/\s/.test(assert_not_null(trimmed[end - 1]))) {
                         --end
                     }
 
@@ -548,7 +568,7 @@ export const CellInput = ({
 
             if (update.docChanged || update.selectionSet) {
                 let state = update.state
-                DOCS_UPDATER_VERBOSE && console.groupCollapsed("Live docs updater")
+                DOCS_UPDATER_VERBOSE && console.groupCollapsed("Live docs updater from docChange or selectionSet")
                 try {
                     let result = get_selected_doc_from_state(state, DOCS_UPDATER_VERBOSE)
                     if (result != null) {
@@ -697,7 +717,7 @@ export const CellInput = ({
                         },
                         request_packages: () => pluto_actions.send("all_registered_package_names").then(({ message }) => message.results),
                         request_special_symbols: () => pluto_actions.send("complete_symbols").then(({ message }) => message),
-                        on_update_doc_query: on_update_doc_query,
+                        on_update_doc_query,
                         request_unsubmitted_global_definitions: () => pluto_actions.get_unsubmitted_global_definitions(),
                         cell_id,
                     }),
@@ -739,7 +759,7 @@ export const CellInput = ({
                         set_error(exception)
                         console.error("EditorView exception!", exception)
                         // alert(
-                        //     `We ran into an issue! We have lost your cursor 😞😓😿\n If this appears again, please press F12, then click the "Console" tab,  eport an issue at https://github.com/fonsp/Pluto.jl/issues`
+                        //     `We ran into an issue! We have lost your cursor 😞😓😿\n If this appears again, please press F12, then click the "Console" tab,  eport an issue at https://github.com/JuliaPluto/Pluto.jl/issues`
                         // )
                     }),
                 ],
@@ -779,7 +799,7 @@ export const CellInput = ({
             const lines_wrapper_resize_observer = new ResizeObserver(() => {
                 const line_nodes = lines_wrapper_dom_node.children
                 const tops = _.map(line_nodes, (c) => /** @type{HTMLElement} */ (c).offsetTop)
-                const diffs = tops.slice(1).map((y, i) => y - tops[i])
+                const diffs = tops.slice(1).map((y, i) => y - assert_not_null(tops[i]))
                 const heights = [...diffs, 15]
                 on_line_heights(heights)
             })

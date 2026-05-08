@@ -10,10 +10,10 @@ jobs:
     continue-on-error: true
     steps:
       
-      - uses: denoland/setup-deno@v1
+      - uses: denoland/setup-deno@v2
         with:
           deno-version: "1.16.1"
-      - uses: actions/github-script@v5
+      - uses: actions/github-script@v9
         with:
           github-token: ${{secrets.GITHUB_TOKEN}}
           script: |
@@ -38,7 +38,7 @@ jobs:
           await Deno.writeTextFile("comment.txt", body);
           '
           
-      - uses: nefrob/pr-description@v1.1.2
+      - uses: nefrob/pr-description@v1.2.0
         with:
             content: "comment.txt"
             contentIsFilePath: "true"

@@ -10,6 +10,7 @@ import { Featured } from "./Featured.js"
 import { get_environment } from "../../common/Environment.js"
 import default_featured_sources from "../../featured_sources.js"
 import { t, th } from "../../common/lang.js"
+import { add_block_screen_text_listener } from "../DesktopInterface.js"
 
 // This is imported asynchronously - uncomment for development
 // import environment from "../../common/Environment.js"
@@ -95,6 +96,12 @@ export const Welcome = ({ launch_params }) => {
         })
     }, [])
 
+    useEffect(() => {
+        add_block_screen_text_listener((/** @type string */ block_screen_text) => {
+            set_block_screen_with_this_text(block_screen_text)
+        })
+    }, [])
+
     const { show_samples, CustomRecent, CustomPicker } = extended_components
 
     // When block_screen_with_this_text is null (default), all is fine. When it is a string, we show a big banner with that text, and disable all other UI. https://github.com/fonsp/Pluto.jl/pull/2292
@@ -164,7 +171,7 @@ export const Welcome = ({ launch_params }) => {
                 />
             </div>
         </section>
-        <section id="featured">
+        <section id="featured" dir="ltr">
             <div>
                 <${Featured} sources=${featured_sources} direct_html_links=${launch_params.featured_direct_html_links} />
             </div>

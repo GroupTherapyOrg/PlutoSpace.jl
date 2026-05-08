@@ -9,6 +9,15 @@ import { exportNotebookDesktop, WarnForVisisblePasswords } from "./ExportBanner.
 import { useMillisSinceTruthy } from "./RunArea.js"
 import { cl } from "../common/ClassTable.js"
 
+/** Add the &offline_bundle=true query parameter to a URL string */
+export const with_offline_bundle_query = (/** @type {string | URL | undefined} */ url) => {
+    if (!url) return url
+    if (url?.toString().startsWith("data:")) return url
+    const u = new URL(url, window.location.href)
+    u.searchParams.set("offline_bundle", "true")
+    return u.toString()
+}
+
 /**
  * @param {{
  *  notebook_id: String,
@@ -49,6 +58,7 @@ export const PlutoLandUpload = ({ notebook_id }) => {
             set_upload_flow_state("generating")
             set_upload_progress(0)
 
+            // We download the HTML export **without** offline bundle. This makes the file much smaller so there is less work for pluto.land.
             const notebook_response = await fetch(String(download_url))
             const notebook_blob = await notebook_response.blob()
 
@@ -84,7 +94,7 @@ export const PlutoLandUpload = ({ notebook_id }) => {
             <div class="ple-bigbutton-container">
                 <a
                     class="ple-bigbutton"
-                    href=${download_url}
+                    href=${String(download_url)}
                     target="_blank"
                     download=${download_filename ?? ""}
                     onClick=${(e) => {
@@ -123,38 +133,38 @@ export const PlutoLandUpload = ({ notebook_id }) => {
                           </a>
                       `
                     : upload_flow_state === "uploading" || upload_flow_state === "generating"
-                    ? html` <div class="ple-plutoland-phase">
-                          <p>${th("t_plutoland_upload_uploading")}</p>
-                          ${prog}
-                      </div>`
-                    : upload_flow_state === "success"
-                    ? html` <div class="ple-plutoland-phase">
-                          <p>${th(is_recording ? "t_plutoland_upload_success_recording" : "t_plutoland_upload_success")}</p>
-                          <div class="ple-plutoland-url-container">
-                              <a href=${`https://pluto.land/n/${plutoland_data.id}`} target="_blank" class="ple-plutoland-url">
-                                  ${`https://pluto.land/n/${plutoland_data.id}`}
-                              </a>
-                              <a
-                                  href="#"
-                                  title=${t("t_plutoland_upload_delete")}
-                                  onClick=${async (e) => {
-                                      e.preventDefault()
+                      ? html` <div class="ple-plutoland-phase">
+                            <p>${th("t_plutoland_upload_uploading")}</p>
+                            ${prog}
+                        </div>`
+                      : upload_flow_state === "success"
+                        ? html` <div class="ple-plutoland-phase">
+                              <p>${th(is_recording ? "t_plutoland_upload_success_recording" : "t_plutoland_upload_success")}</p>
+                              <div class="ple-plutoland-url-container">
+                                  <a href=${`https://pluto.land/n/${plutoland_data.id}`} target="_blank" class="ple-plutoland-url">
+                                      ${`https://pluto.land/n/${plutoland_data.id}`}
+                                  </a>
+                                  <a
+                                      href="#"
+                                      title=${t("t_plutoland_upload_delete")}
+                                      onClick=${async (e) => {
+                                          e.preventDefault()
 
-                                      await fetch(`https://pluto.land/n/${plutoland_data.id}`, {
-                                          method: "DELETE",
-                                          headers: {
-                                              "X-Creation-Secret": String(plutoland_data.creation_secret),
-                                          },
-                                      })
-                                      set_upload_flow_state("waiting")
-                                      set_plutoland_data({})
-                                  }}
-                              >
-                                  ${InlineIonicon("trash-bin-outline", { inlineMargin: true })}
-                              </a>
-                          </div>
-                      </div>`
-                    : html` <div class="ple-plutoland-phase">Error: ${upload_flow_state}</div>`}
+                                          await fetch(`https://pluto.land/n/${plutoland_data.id}`, {
+                                              method: "DELETE",
+                                              headers: {
+                                                  "X-Creation-Secret": String(plutoland_data.creation_secret),
+                                              },
+                                          })
+                                          set_upload_flow_state("waiting")
+                                          set_plutoland_data({})
+                                      }}
+                                  >
+                                      ${InlineIonicon("trash-bin-outline", { inlineMargin: true })}
+                                  </a>
+                              </div>
+                          </div>`
+                        : html` <div class="ple-plutoland-phase">Error: ${upload_flow_state}</div>`}
             </div>
         </div>
         <div class="final"><button onClick=${close}>${t("t_frontmatter_cancel")}</button></div>

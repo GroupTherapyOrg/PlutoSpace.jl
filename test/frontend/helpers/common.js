@@ -127,9 +127,11 @@ export const waitForContentToChange = async (page, selector, currentContent) => 
 export const waitForContentToBecome = async (
     /** @type {import("puppeteer").Page} */ page,
     /** @type {string} */ selector,
-    /** @type {string} */ targetContent
+    /** @type {string} */ targetContent,
+    /** @type {{ timeout?: number }} */ options = {}
 ) => {
-    await page.waitForSelector(selector, { visible: targetContent !== "" })
+    const timeout = options.timeout ?? 30000
+    await page.waitForSelector(selector, { visible: targetContent !== "", timeout })
     try {
         await page.waitForFunction(
             (selector, targetContent) => {
@@ -137,7 +139,7 @@ export const waitForContentToBecome = async (
                 // https://developer.mozilla.org/en-US/docs/Web/API/Node/textContent#differences_from_innertext
                 return element !== null && element.textContent === targetContent
             },
-            { polling: 100 },
+            { polling: 100, timeout },
             selector,
             targetContent
         )
@@ -148,12 +150,17 @@ export const waitForContentToBecome = async (
     return getTextContent(page, selector)
 }
 
-export const clickAndWaitForNavigation = async (page, selector) => {
-    let t = with_connections_debug(page, () => page.waitForNavigation({ waitUntil: "networkidle0" })).catch((e) => {
-        console.warn("Network idle never happened after navigation... weird!", e)
-    })
+export const clickAndWaitForNavigation = async (/** @type {import("puppeteer").Page} */ page, /** @type {string} */ selector) => {
+    // Both watchers must be registered BEFORE clicking, otherwise the fallback
+    // waitForNavigation call may be set up after domcontentloaded has already fired,
+    // causing it to wait indefinitely for the next navigation.
+    let domContentPromise = page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 30000 })
+    let networkIdlePromise = with_connections_debug(page, () => page.waitForNavigation({ waitUntil: "networkidle0", timeout: 10000 }))
     await page.click(selector)
-    await t
+    await networkIdlePromise.catch((e) => {
+        console.warn("Network idle never happened after navigation... weird!", e)
+        return domContentPromise
+    })
 }
 
 const dismissBeforeUnloadDialogs = (page) => {
@@ -188,6 +195,21 @@ console.log(`Offline mode enabled: ${should_be_offline}`)
 const blocked_domains = ["cdn.jsdelivr.net", "unpkg.com", "cdn.skypack.dev", "esm.sh", "firebase.google.com"]
 const hide_warning = (url) => url.includes("mathjax")
 
+/**
+ * Auto-accept the "confirm before long runtime" dialog in tests by clicking
+ * its confirm button on a 1-second interval. Installed via
+ * `evaluateOnNewDocument` so it runs across navigations.
+ *
+ * @param {import("puppeteer").Page} page
+ */
+export const autoAcceptConfirmBeforeLongRuntime = async (page) => {
+    await page.evaluateOnNewDocument(() => {
+        setInterval(() => {
+            document.querySelector("dialog.confirm-before-long-runtime:open button.final-yes")?.click()
+        }, 1000)
+    })
+}
+
 export const createPage = async (browser) => {
     /** @type {import("puppeteer").Page} */
     const page = await browser.newPage()
@@ -195,6 +217,7 @@ export const createPage = async (browser) => {
     failOnError(page)
     dismissBeforeUnloadDialogs(page)
     dismissVersionDialogs(page)
+    await autoAcceptConfirmBeforeLongRuntime(page)
 
     if (should_be_offline) {
         page.setRequestInterception(true)

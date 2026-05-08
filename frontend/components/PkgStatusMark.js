@@ -48,7 +48,8 @@ export const package_status = ({ nbpkg, package_name, available_versions, is_dis
 
     package_url = package_url ?? `https://juliahub.com/ui/Packages/General/${package_name}`
 
-    const chosen_version = nbpkg?.installed_versions[package_name] ?? null
+    let chosen_version = nbpkg?.installed_versions[package_name] ?? null
+    if (chosen_version === "nothing") chosen_version = "..."
     const nbpkg_waiting_for_permission = nbpkg?.waiting_for_permission ?? false
     const busy = !nbpkg_waiting_for_permission && ((nbpkg?.busy_packages ?? []).includes(package_name) || !(nbpkg?.instantiated ?? true))
 
@@ -159,14 +160,15 @@ export const PkgStatusMark = ({ package_name, pluto_actions, notebook_id, nbpkg 
             className=${status === "busy"
                 ? "busy"
                 : status === "installed"
-                ? "installed"
-                : status === "not_found"
-                ? "not_found"
-                : status === "will_be_installed"
-                ? "will_be_installed"
-                : ""}
+                  ? "installed"
+                  : status === "not_found"
+                    ? "not_found"
+                    : status === "will_be_installed"
+                      ? "will_be_installed"
+                      : ""}
         >
             <button
+                aria-label=${t("t_pkg_click_to_open_pkg_popup")}
                 onClick=${(event) => {
                     open_pluto_popup({
                         type: "nbpkg",
@@ -193,6 +195,7 @@ export const PkgActivateMark = ({ package_name }) => {
     return html`
         <pkg-status-mark title=${hint_raw} class="disable_pkg">
             <button
+                aria-label=${t("t_pkg_click_to_open_pkg_popup")}
                 onClick=${(event) => {
                     open_pluto_popup({
                         type: "nbpkg",

@@ -1,0 +1,45 @@
+version: 2
+updates:
+  # Monitor frontend-bundler
+  - package-ecosystem: "npm"
+    directory: "/frontend-bundler"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch"]
+    
+  # Monitor frontend-bundler/parcel-resolver-like-a-browser
+  - package-ecosystem: "npm"
+    directory: "/frontend-bundler/parcel-resolver-like-a-browser"
+    schedule:
+      interval: "weekly"
+    
+  # Monitor frontend
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    
+  # test/frontend is NOT included - Dependabot alerts disabled for this directory
+  
+  # Monitor GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      
+
+  - package-ecosystem: "julia"
+    directories:
+      - "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      all-julia-packages:
+        patterns:
+          - "*"

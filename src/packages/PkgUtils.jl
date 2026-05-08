@@ -282,7 +282,7 @@ Pluto.activate_notebook_environment("notebook.jl") do
     Pkg.add("Example")
 end
 
-# Now the file "notebook.jl" was updated!
+#-> Now the file "notebook.jl" was updated!
 ```
 
 !!! warning

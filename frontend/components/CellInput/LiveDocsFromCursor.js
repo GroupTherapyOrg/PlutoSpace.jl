@@ -1,4 +1,5 @@
 import { EditorState, syntaxTree } from "../../imports/CodemirrorPlutoSetup.js"
+import { sorted_keywords } from "./pluto_autocomplete.js"
 import { ScopeStateField } from "./scopestate_statefield.js"
 
 let get_root_variable_from_expression = (cursor) => {
@@ -29,22 +30,7 @@ let VALID_DOCS_TYPES = [
     "Signature",
     "ParametrizedExpression",
 ]
-let keywords_that_have_docs_and_are_cool = [
-    "import",
-    "export",
-    "try",
-    "catch",
-    "finally",
-    "quote",
-    "do",
-    "struct",
-    "mutable",
-    "module",
-    "baremodule",
-    "if",
-    "let",
-    ".",
-]
+let keywords_that_have_docs_and_are_cool = [...sorted_keywords, "."]
 
 let is_docs_searchable = (/** @type {import("../../imports/CodemirrorPlutoSetup.js").TreeCursor} */ cursor) => {
     if (keywords_that_have_docs_and_are_cool.includes(cursor.name)) {
@@ -100,7 +86,7 @@ export let get_selected_doc_from_state = (/** @type {EditorState} */ state, verb
         do {
             verbose && console.group(`Iteration #${iterations}`)
             try {
-                verbose && console.log("cursor", cursor.toString())
+                verbose && console.log(`cursor (${cursor.name}):`, cursor.toString())
 
                 // Just to make sure we don't accidentally end up in an infinite loop
                 if (iterations > 100) {
@@ -126,6 +112,10 @@ export let get_selected_doc_from_state = (/** @type {EditorState} */ state, verb
 
                 verbose && console.log(`parents:`, parents)
 
+                if (sorted_keywords.includes(cursor.name)) {
+                    return cursor.toString()
+                }
+
                 let index_of_struct_in_parents = parents.indexOf("StructDefinition")
                 if (index_of_struct_in_parents !== -1) {
                     verbose && console.log(`in a struct?`)
@@ -139,11 +129,12 @@ export let get_selected_doc_from_state = (/** @type {EditorState} */ state, verb
                         // We're inside a `x::X` inside the struct
                     } else if (parents.includes("SubtypedExpression") && parents.indexOf("SubtypedExpression") < index_of_struct_in_parents) {
                         // We're inside `Real` in `struct MyNumber<:Real`
-                        while (parent?.name !== "SubtypedExpression") {
+                        while (parent != null && parent.name !== "SubtypedExpression") {
                             parent = parent.parent
                         }
+                        if (parent == null) return undefined
                         const type_node = parent.lastChild
-                        if (type_node.from <= cursor.from && type_node.to >= cursor.to) {
+                        if (type_node != null && type_node.from <= cursor.from && type_node.to >= cursor.to) {
                             return state.doc.sliceString(type_node.from, type_node.to)
                         }
                     } else if (cursor.name === "struct" || cursor.name === "mutable") {
@@ -229,15 +220,16 @@ export let get_selected_doc_from_state = (/** @type {EditorState} */ state, verb
                 // EXEPT, when we are in the last part (the value) of a NamedField, because then we can show
                 // the value.
                 if (cursor.name === "Identifier" && parent.name === "NamedField") {
-                    if (parent.lastChild.from != cursor.from && parent.lastChild.to != cursor.to) {
+                    if (parent.lastChild != null && parent.lastChild.from != cursor.from && parent.lastChild.to != cursor.to) {
                         continue
                     }
                 }
 
                 // `a = 1` would yield `=`, `a += 1` would yield `+=`
                 if (cursor.name === "binding") {
-                    let end_of_first = cursor.node.firstChild.to
-                    let beginning_of_last = cursor.node.lastChild.from
+                    let end_of_first = cursor.node.firstChild?.to
+                    let beginning_of_last = cursor.node.lastChild?.from
+                    if (end_of_first == null || beginning_of_last == null) return undefined
                     return state.doc.sliceString(end_of_first, beginning_of_last).trim()
                 }
 
@@ -250,7 +242,7 @@ export let get_selected_doc_from_state = (/** @type {EditorState} */ state, verb
                 if (
                     cursor.name === "Identifier" &&
                     parent.name === "ArgumentList" &&
-                    (parent.parent.parent.name === "FunctionAssignmentExpression" || parent.parent.name === "FunctionDefinition")
+                    (parent.parent?.parent?.name === "FunctionAssignmentExpression" || parent.parent?.name === "FunctionDefinition")
                 ) {
                     continue
                 }
@@ -261,7 +253,7 @@ export let get_selected_doc_from_state = (/** @type {EditorState} */ state, verb
                 }
 
                 // If we happen to be anywhere else in a function declaration, we want the function name
-                // `function X() ... end` should yield `X`
+                // `function X() ... end` to yield `X`
                 if (cursor.name === "FunctionDefinition") {
                     cursor.firstChild() // "function"
                     cursor.nextSibling() // Identifier
@@ -287,8 +279,9 @@ export let get_selected_doc_from_state = (/** @type {EditorState} */ state, verb
                 // A bit odd, but we don't get the span of the actual operator in a binary expression,
                 // so we infer it from the end of the left side and start of the right side.
                 if (cursor.name === "BinaryExpression") {
-                    let end_of_first = cursor.node.firstChild.to
-                    let beginning_of_last = cursor.node.lastChild.from
+                    let end_of_first = cursor.node.firstChild?.to
+                    let beginning_of_last = cursor.node.lastChild?.from
+                    if (end_of_first == null || beginning_of_last == null) return undefined
                     return state.doc.sliceString(end_of_first, beginning_of_last).trim()
                 }
 

@@ -4,6 +4,8 @@ import dialogPolyfill from "https://cdn.jsdelivr.net/npm/dialog-polyfill@0.5.6/d
 import { useEventListener } from "../common/useEventListener.js"
 import { html, useLayoutEffect, useRef } from "../imports/Preact.js"
 import { getCurrentLanguage, t, th } from "../common/lang.js"
+import * as desktop from "./DesktopInterface.js"
+import { with_offline_bundle_query } from "./PlutoLandUpload.js"
 
 const Circle = ({ fill }) => html`
     <svg
@@ -55,15 +57,22 @@ export const exportNotebookDesktop = (
     /** @type {Desktop.PlutoExport} */ type,
     /** @type {string} */ notebook_id
 ) => {
-    // @ts-ignore
-    const isDesktop = !!window.plutoDesktop
-    if (isDesktop) {
+    if (desktop.is_desktop()) {
         e.preventDefault()
-        window.plutoDesktop?.fileSystem.exportNotebook(notebook_id, type)
+        desktop.export_notebook(notebook_id, type)
     }
 }
 
-export const ExportBanner = ({ notebook_id, print_title, open, onClose, notebookfile_url, notebookexport_url, start_recording }) => {
+export const ExportBanner = ({
+    notebook_id,
+    print_title,
+    open,
+    onClose,
+    notebookfile_url,
+    notebookexport_url,
+    start_recording,
+    process_waiting_for_permission,
+}) => {
     //
     let print_old_title_ref = useRef("")
     useEventListener(
@@ -116,6 +125,8 @@ export const ExportBanner = ({ notebook_id, print_title, open, onClose, notebook
     const pride = true
     const prideMonth = new Date().getMonth() === 5
 
+    const warn_if_safe_preview = () => (process_waiting_for_permission ? confirm(t("t_export_safe_preview_warning")) : true)
+
     return html`
         <dialog id="export" inert=${!open} open=${open} ref=${element_ref} class=${prideMonth ? "pride" : ""}>
             <div id="container">
@@ -131,6 +142,10 @@ export const ExportBanner = ({ notebook_id, print_title, open, onClose, notebook
                     class="export_card"
                     download=""
                     onClick=${(e) => {
+                        if (!warn_if_safe_preview()) {
+                            e.preventDefault()
+                            return
+                        }
                         e.preventDefault()
                         WarnForVisisblePasswords()
                         window.dispatchEvent(new CustomEvent("open pluto html export", { detail: { download_url: notebookexport_url } }))
@@ -139,7 +154,17 @@ export const ExportBanner = ({ notebook_id, print_title, open, onClose, notebook
                     <header role="none"><${Square} fill="#E86F51" /> ${t("t_export_card_static_html")}</header>
                     <section>${th("t_export_card_static_html_description")}</section>
                 </a>
-                <a href="#" class="export_card" onClick=${() => window.print()}>
+                <a
+                    href="#"
+                    class="export_card"
+                    onClick=${(e) => {
+                        if (!warn_if_safe_preview()) {
+                            e.preventDefault()
+                            return
+                        }
+                        window.print()
+                    }}
+                >
                     <header role="none"><${Square} fill="#619b3d" />${t("t_export_card_pdf")}</header>
                     <section>${th("t_export_card_pdf_description")}</section>
                 </a>
@@ -154,13 +179,13 @@ export const ExportBanner = ({ notebook_id, print_title, open, onClose, notebook
                             e.preventDefault()
                         }}
                         class="export_card"
-                        style=${getCurrentLanguage() === "el"
+                        style=${getCurrentLanguage() === "el" || getCurrentLanguage() === "cs"
                             ? "--size: 26ch"
                             : getCurrentLanguage() === "de"
-                            ? "--size: 24ch"
-                            : getCurrentLanguage() === "pt-PT"
-                            ? "--size: 26ch"
-                            : null}
+                              ? "--size: 24ch"
+                              : getCurrentLanguage() === "pt-PT"
+                                ? "--size: 26ch"
+                                : null}
                     >
                         <header role="none"><${Circle} fill="#E86F51" />${th("t_export_card_record")}</header>
                         <section>${th("t_export_card_record_description")}</section>

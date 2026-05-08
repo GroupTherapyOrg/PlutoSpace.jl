@@ -241,10 +241,11 @@ export const Cell = ({
     const on_delete = useCallback(() => {
         pluto_actions.confirm_delete_multiple(pluto_actions.get_selected_cells(cell_id, selected))
     }, [pluto_actions, selected, cell_id])
-    const on_submit = useCallback(() => {
+    const on_submit = useCallback(async () => {
         if (!disable_input_ref.current) {
-            pluto_actions.set_and_run_multiple([cell_id])
+            return await pluto_actions.set_and_run_multiple([cell_id])
         }
+        return false
     }, [pluto_actions, cell_id])
     const on_change_cell_input = useCallback(
         (new_code) => {
@@ -258,7 +259,7 @@ export const Cell = ({
         [code_folded, cm_forced_focus, pluto_actions, on_change]
     )
     const on_add_after = useCallback(() => {
-        pluto_actions.add_remote_cell(cell_id, "after")
+        return pluto_actions.add_remote_cell(cell_id, "after")
     }, [pluto_actions, cell_id, selected])
     const on_code_fold = useCallback(() => {
         if (inspecting_hidden_code) {
@@ -267,8 +268,8 @@ export const Cell = ({
             pluto_actions.fold_remote_cells(pluto_actions.get_selected_cells(cell_id, selected), !code_folded)
         }
     }, [pluto_actions, cell_id, selected, code_folded, inspecting_hidden_code_here, inspecting_hidden_code])
-    const on_run = useCallback(() => {
-        pluto_actions.set_and_run_multiple(pluto_actions.get_selected_cells(cell_id, selected))
+    const on_run = useCallback(async () => {
+        return await pluto_actions.set_and_run_multiple(pluto_actions.get_selected_cells(cell_id, selected))
     }, [pluto_actions, cell_id, selected])
     const set_show_logs = useCallback(
         (show_logs) =>
@@ -338,8 +339,8 @@ export const Cell = ({
             ${code_not_trusted_yet
                 ? html`<${SafePreviewOutput} />`
                 : cell_api_ready
-                ? html`<${CellOutput} errored=${errored} ...${output} sanitize_html=${sanitize_html} cell_id=${cell_id} />`
-                : html``}
+                  ? html`<${CellOutput} errored=${errored} ...${output} sanitize_html=${sanitize_html} cell_id=${cell_id} />`
+                  : html``}
             <${CellInput}
                 local_code=${cell_input_local?.code ?? code}
                 remote_code=${code}
@@ -415,22 +416,22 @@ export const Cell = ({
                       }}
                   ></div>`
                 : depends_on_skipped_cells
-                ? html`<div
-                      class="depends_on_skipped_marker"
-                      title=${t("t_cell_indirectly_disabled_in_file_tooltip")}
-                      onClick=${(e) => {
-                          open_pluto_popup({
-                              type: "info",
-                              source_element: e.target,
-                              body: th("t_cell_indirectly_disabled_in_file_explanation", {
-                                  upstreamLink: html`<span onClick=${skip_as_script_jump} style="cursor: pointer; text-decoration: underline">
-                                      ${t("t_cell_upstreamLink")}</span
-                                  >`,
-                              }),
-                          })
-                      }}
-                  ></div>`
-                : null}
+                  ? html`<div
+                        class="depends_on_skipped_marker"
+                        title=${t("t_cell_indirectly_disabled_in_file_tooltip")}
+                        onClick=${(e) => {
+                            open_pluto_popup({
+                                type: "info",
+                                source_element: e.target,
+                                body: th("t_cell_indirectly_disabled_in_file_explanation", {
+                                    upstreamLink: html`<span onClick=${skip_as_script_jump} style="cursor: pointer; text-decoration: underline">
+                                        ${t("t_cell_upstreamLink")}</span
+                                    >`,
+                                }),
+                            })
+                        }}
+                    ></div>`
+                  : null}
         </pluto-cell>
     `
 }

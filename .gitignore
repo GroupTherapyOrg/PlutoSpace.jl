@@ -10,8 +10,10 @@ test/frontend/artifacts/*
 .DS_Store
 
 frontend-dist
+frontend-dist-*
 node_modules
 .parcel-cache
+.https-cache
 frontend/dist
 .net
 net
@@ -21,3 +23,4 @@ net
 profile.pb.gz
 
 test/snapshots
+.claude/worktrees/

@@ -49,6 +49,46 @@ using Pluto.WorkspaceManager: WorkspaceManager, poll
     close(server)
 end
 
+@testset "pretty_address" begin
+    make_session(; kwargs...) = Pluto.ServerSession(;
+        options=Pluto.Configuration.from_flat_kwargs(;
+            launch_browser=false,
+            require_secret_for_access=false,
+            require_secret_for_open_links=false,
+            kwargs...,
+        ),
+    )
+    call(session) = Pluto.pretty_address(session, Sockets.IPv4("127.0.0.1"), 1234)
+
+    clean_env(f) = withenv(f, "JULIAHUB_APP_URL" => nothing, "JH_APP_URL" => nothing)
+
+    clean_env() do
+        @test call(make_session()) == "http://localhost:1234/"
+    end
+
+    clean_env() do
+        session = make_session(; root_url="https://x.example/{PORT}/")
+        @test call(session) == "https://x.example/1234/"
+    end
+
+    withenv("JULIAHUB_APP_URL" => "https://x.juliahub.com/", "JH_APP_URL" => nothing) do
+        @test call(make_session()) == "https://x.juliahub.com/proxy/1234/"
+    end
+
+    withenv("JULIAHUB_APP_URL" => nothing, "JH_APP_URL" => "https://legacy.juliahub.com/") do
+        @test call(make_session()) == "https://legacy.juliahub.com/proxy/1234/"
+    end
+
+    withenv("JULIAHUB_APP_URL" => "https://new.juliahub.com/", "JH_APP_URL" => "https://legacy.juliahub.com/") do
+        @test call(make_session()) == "https://new.juliahub.com/proxy/1234/"
+    end
+
+    withenv("JULIAHUB_APP_URL" => "https://x.juliahub.com/", "JH_APP_URL" => nothing) do
+        session = make_session(; root_url="https://override.example/{PORT}/")
+        @test call(session) == "https://override.example/1234/"
+    end
+end
+
 @testset "UTF-8 to Codemirror UTF-16 byte mapping" begin
     # range ends are non inclusives
     tests = [
@@ -64,7 +104,7 @@ end
 
 @testset "Exports" begin
     port, socket = 
-        @inferred Pluto.port_serversocket(Sockets.ip"0.0.0.0", nothing, 5543) 
+        @inferred Pluto.port_serversocket(Sockets.ip"0.0.0.0", nothing, 5543)
 
     close(socket)
     @test 5543 <= port < 5600
@@ -125,12 +165,49 @@ end
     
     @test occursin(string(Pluto.PLUTO_VERSION), export_contents)
     @test occursin("</html>", export_contents)
+    @test occursin("insertion-spot", export_contents)
+    # pluto.land needs to find this pattern:
+    plutoland_regex = r"href=\"(https://cdn\.jsdelivr\.net/gh/(?:fonsp|JuliaPluto)/Pluto\.jl@([\d.]+)/)[\w/.\\d\-]*\""
+    @test occursin(plutoland_regex, export_contents)
+    
+    
+    export_offline_contents = read(download(local_url("notebookexport?offline_bundle=true&id=$(notebook.notebook_id)")), String)
+    # We can't test if the offline_bundle is working (and that it is different from the regular bundle), because the tests are probably running on an unbundled Pluto (the directories frontend-dist and frontend-dist-offline are not generated). In that case, Pluto falls back to using the unbundled editor.html with CDN pointing to /frontend/, for example:
+    ### https://cdn.jsdelivr.net/gh/JuliaPluto/Pluto.jl@0.20.21/frontend/img/favicon_unsaturated.svg
+    @test occursin(string(Pluto.PLUTO_VERSION), export_offline_contents)
+    @test occursin("</html>", export_offline_contents)
+    @test occursin("insertion-spot", export_offline_contents)
+    @test occursin(plutoland_regex, export_offline_contents)
+    
+    t = tempname(; cleanup=false)
+    write(@show(t), export_offline_contents)
+    
+    
+    if isdir(joinpath(pkgdir(Pluto), "frontend-dist")) && isdir(joinpath(pkgdir(Pluto), "frontend-dist-offline"))
+        @test hash(export_offline_contents) != hash(export_contents)
+        @test length(export_offline_contents) > 4 * length(export_contents) # the offline bundle is much larger than the regular export
+        
+        https_count = count("https://", export_contents)
+        https_count_offline = count("https://", export_offline_contents)
+        @test https_count > https_count_offline + 5
+    else
+        @info "Skipping offline bundle tests because there are no bundle files. That's fine, but if you want to run these tests then you should run the frontend bundlers before, and run with the JULIA_PLUTO_FORCE_BUNDLED=ja env variable."
+    end
+    
+    
+    # wait for Pkg to finish
+    for _ in 1:10
+        Pluto.withtoken(Pluto.pkg_token) do
+            sleep(0.01)
+        end
+    end
     
     for notebook in values(🍭.notebooks)
-        SessionActions.shutdown(🍭, notebook; keep_in_session=false)
+        SessionActions.shutdown(🍭, notebook; keep_in_session=false, async=false)
     end
     
     close(server)
 end
+sleep(2)
 
 end # testset

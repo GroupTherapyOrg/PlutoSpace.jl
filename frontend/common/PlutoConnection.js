@@ -58,10 +58,15 @@ export const resolvable_promise = () => {
     }
 }
 
+export const assert_not_null = (x) => {
+    if (x == null) throw new Error("Unexpected null value")
+    return x
+}
+
 /**
  * @returns {string}
  */
-const get_unique_short_id = () => crypto.getRandomValues(new Uint32Array(1))[0].toString(36)
+const get_unique_short_id = () => assert_not_null(crypto.getRandomValues(new Uint32Array(1))[0]).toString(36)
 
 const socket_is_alright = (socket) => socket.readyState == WebSocket.OPEN || socket.readyState == WebSocket.CONNECTING
 
@@ -129,13 +134,13 @@ const create_ws_connection = (address, { on_message, on_socket_close }, timeout_
                     } catch (process_err) {
                         console.error("Failed to process message from websocket", process_err, { message })
                         // prettier-ignore
-                        alert(`Something went wrong! You might need to refresh the page.\n\nPlease open an issue on https://github.com/fonsp/Pluto.jl with this info:\n\nFailed to process update\n${process_err.message}\n\n${JSON.stringify(event)}`)
+                        alert(`Something went wrong! You might need to refresh the page.\n\nPlease open an issue on https://github.com/JuliaPluto/Pluto.jl with this info:\n\nFailed to process update\n${process_err.message}\n\n${JSON.stringify(event)}`)
                     }
                 } catch (unpack_err) {
                     console.error("Failed to unpack message from websocket", unpack_err, { event })
 
                     // prettier-ignore
-                    alert(`Something went wrong! You might need to refresh the page.\n\nPlease open an issue on https://github.com/fonsp/Pluto.jl with this info:\n\nFailed to unpack message\n${unpack_err}\n\n${JSON.stringify(event)}`)
+                    alert(`Something went wrong! You might need to refresh the page.\n\nPlease open an issue on https://github.com/JuliaPluto/Pluto.jl with this info:\n\nFailed to unpack message\n${unpack_err}\n\n${JSON.stringify(event)}`)
                 }
             })
         }

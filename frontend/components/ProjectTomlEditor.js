@@ -1,9 +1,7 @@
 import { html, useRef, useLayoutEffect, useState, useEffect, useCallback, useContext } from "../imports/Preact.js"
 import { has_ctrl_or_cmd_pressed } from "../common/KeyboardShortcuts.js"
 import _ from "../imports/lodash.js"
-
-// @ts-ignore
-import semver from "https://esm.sh/semver@7.6.3"
+import semver from "../imports/semver-es.js"
 
 import {
     EditorState,
@@ -221,7 +219,7 @@ export const ProjectTomlEditor = ({ notebook, process_waiting_for_permission }) 
         base.current.insertBefore(current_cm.dom, base.current.firstElementChild)
     }, [])
 
-    return html`<dialog ref=${dialog_ref} class="pluto-modal pluto-project_toml">
+    return html`<dialog ref=${dialog_ref} class="pluto-modal pluto-modal-dark pluto-project_toml">
         <h1>${th("t_project_toml_editor_title")}</h1>
         <p>
             ${t("t_project_toml_editor_description")} (<a href="https://pkgdocs.julialang.org/dev/toml-files/"
@@ -247,8 +245,8 @@ export const ProjectTomlEditor = ({ notebook, process_waiting_for_permission }) 
 const current_toml_section = (/** @type {EditorState} */ state, pos) => {
     const before = state.sliceDoc(0, pos)
     const sections = [...before.matchAll(/^\[([^\]]*)\]/gm)]
-    if (sections.length === 0) return null
-    return sections[sections.length - 1][1]
+    if (sections.length === 0) return undefined
+    return sections[sections.length - 1]?.[1]
 }
 
 /**
@@ -424,19 +422,20 @@ const UpdateWidget = ({ view, from, to, name, version, get_avaible_versions }) =
     if (stages == null) return null
 
     return html`${stages.map(
-        ({ entry, label }) => html`<button
-            onClick=${() => {
-                view.dispatch({
-                    changes: {
-                        from,
-                        to,
-                        insert: `"${entry}"`,
-                    },
-                })
-            }}
-        >
-            ${label}
-        </button>`
+        ({ entry, label }) =>
+            html`<button
+                onClick=${() => {
+                    view.dispatch({
+                        changes: {
+                            from,
+                            to,
+                            insert: `"${entry}"`,
+                        },
+                    })
+                }}
+            >
+                ${label}
+            </button>`
     )}`
 }
 
@@ -460,14 +459,16 @@ const decs = (/** @type {EditorView} */ view, get_avaible_versions) => {
 
                     let deco = Decoration.widget({
                         // widget: new ReactWidget(html`<span style=${{ opacity: 0.2 }}>${name} at ${version}</span>`),
-                        widget: new ReactWidget(html` <${UpdateWidget}
-                            view=${view}
-                            from=${node.from}
-                            to=${node.to}
-                            name=${name}
-                            version=${version}
-                            get_avaible_versions=${get_avaible_versions}
-                        />`),
+                        widget: new ReactWidget(
+                            html` <${UpdateWidget}
+                                view=${view}
+                                from=${node.from}
+                                to=${node.to}
+                                name=${name}
+                                version=${version}
+                                get_avaible_versions=${get_avaible_versions}
+                            />`
+                        ),
                         side: 1,
                     })
                     widgets.push(deco.range(node.to))

@@ -23,22 +23,22 @@ jobs:
 
         steps:
             # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-            - uses: actions/checkout@v5
+            - uses: actions/checkout@v6
 
             # Makes thes `julia` command available
-            - uses: julia-actions/setup-julia@v2
+            - uses: julia-actions/setup-julia@v3
               with:
                   version: "1.10" # our lowest supported version
 
-            - uses: julia-actions/cache@v2
+            - uses: julia-actions/cache@v3
 
             - name: Install Pluto.jl packages
               run: |
                   julia --project=$GITHUB_WORKSPACE -e "using Pkg; Pkg.instantiate()"
 
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@v6
               with:
-                  node-version: "18.x"
+                  node-version: "22.x"
 
             - name: Install dependencies
               working-directory: ./test/frontend
@@ -65,7 +65,7 @@ jobs:
                   PLUTO_PORT: 1235
                   PLUTO_TEST_OFFLINE: ${{ github.ref_name == 'release' }}
 
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v7
               if: failure()
               with:
                   name: test-screenshot-artifacts

@@ -19,12 +19,13 @@
     "parcel-resolver-like-a-browser"
   ],
   "scripts": {
-    "build": "npm run clean && npm run build:rainbow && npm run build:editor",
+    "build": "npm run clean && npm run build:rainbow && npm run build:editor && npm run build:editor:offline",
     "build:editor": "parcel build --no-source-maps --target pluto",
+    "build:editor:offline": "parcel build --no-source-maps --config ./.parcelrc-offline --target pluto-offline",
     "build:rainbow": "parcel build --no-source-maps --target main --target module --target ui-main --target ui-module --target react-main --target react-module && npm run build:types",
     "build:types": "mkdir -p dist/standalone/integrations && cp standalone/index.d.ts dist/standalone/index.d.ts && cp standalone/integrations/react.d.ts dist/standalone/integrations/react.d.ts",
     "start": "parcel --target pluto",
-    "clean": "rm -rf dist ../frontend-dist",
+    "clean": "rm -rf dist ../frontend-dist ../frontend-dist-offline",
     "prepublishOnly": "npm run build:rainbow",
     "typecheck": "tsc --noEmit"
   },
@@ -54,6 +55,14 @@
         "error.jl.html"
       ],
       "distDir": "../frontend-dist",
+      "publicUrl": ".",
+      "context": "browser"
+    },
+    "pluto-offline": {
+      "source": [
+        "editor.html"
+      ],
+      "distDir": "../frontend-dist-offline",
       "publicUrl": ".",
       "context": "browser"
     },
@@ -140,16 +149,18 @@
   },
   "devDependencies": {
     "@highlightjs/cdn-assets": "^11.11.1",
-    "@parcel/config-default": "~2.12.0",
-    "@parcel/optimizer-blob-url": "~2.12.0",
-    "@parcel/optimizer-data-url": "~2.12.0",
-    "@parcel/transformer-typescript-tsc": "~2.12.0",
+    "@parcel/config-default": "^2.16.4",
+    "@parcel/optimizer-blob-url": "^2.16.4",
+    "@parcel/optimizer-data-url": "^2.16.4",
+    "@parcel/transformer-inline": "^2.16.4",
+    "@parcel/transformer-typescript-tsc": "^2.16.4",
     "@plutojl/posthtml-crossorigin": "^1.0.0",
     "@types/lodash-es": "^4.17.6",
     "@types/node": "^22",
     "@types/react": "^19.1.10",
+    "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",
-    "parcel": "~2.12.0",
+    "parcel": "^2.16.4",
     "parcel-reporter-bundle-manifest": "^1.0.0",
     "parcel-resolver-like-a-browser": "*",
     "posthtml": "^0.16.6",

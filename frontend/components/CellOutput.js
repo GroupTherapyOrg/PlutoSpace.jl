@@ -44,16 +44,18 @@ export class CellOutput extends Component {
         this.old_height = 0
         // @ts-ignore Is there a way to use the latest DOM spec?
         this.resize_observer = new ResizeObserver((entries) => {
-            const new_height = this.base.offsetHeight
+            const new_height = this.base?.offsetHeight ?? 0
 
-            // Scroll the page to compensate for change in page height:
-            if (document.body.querySelector("pluto-cell:focus-within")) {
-                const cell_outputs_after_focused = document.body.querySelectorAll("pluto-cell:focus-within ~ pluto-cell > pluto-output") // CSS wizardry ✨
-                if (
-                    !(document.activeElement?.tagName === "SUMMARY") &&
-                    (cell_outputs_after_focused.length === 0 || !Array.from(cell_outputs_after_focused).includes(this.base))
-                ) {
-                    window.scrollBy(0, new_height - this.old_height)
+            if (new_height !== this.old_height) {
+                // Scroll the page to compensate for change in page height:
+                if (document.body.querySelector("pluto-cell:focus-within")) {
+                    const cell_outputs_after_focused = document.body.querySelectorAll("pluto-cell:focus-within ~ pluto-cell > pluto-output") // CSS wizardry ✨
+                    if (
+                        !(document.activeElement?.tagName === "SUMMARY") &&
+                        (cell_outputs_after_focused.length === 0 || !Array.from(cell_outputs_after_focused).includes(this.base))
+                    ) {
+                        window.scrollBy(0, new_height - this.old_height)
+                    }
                 }
             }
 
@@ -610,7 +612,7 @@ export let RawHTMLContainer = ({ body, className = "", persist_js_state = false,
         }
     }, [body, last_run_timestamp, pluto_actions, sanitize_html])
 
-    return html`<div class="raw-html-wrapper ${className}" ref=${container_ref}></div>`
+    return html`<div dir="auto" class="raw-html-wrapper ${className}" ref=${container_ref}></div>`
 }
 
 // https://github.com/fonsp/Pluto.jl/issues/1692
