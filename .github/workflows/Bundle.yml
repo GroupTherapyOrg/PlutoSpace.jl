@@ -60,8 +60,9 @@ jobs:
               working-directory: frontend
               run: |
                 npm run clean
+                # `npm run build` already produces both frontend-dist and
+                # frontend-dist-offline, so a single invocation is enough.
                 (npm run build) || (npm run build) || (npm run build)
-                (npm run build-offline) || (npm run build-offline) || (npm run build-offline)
                 
    
             - name: List generated files
