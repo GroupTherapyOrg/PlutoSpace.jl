@@ -11,8 +11,7 @@
  * @author Pluto.jl Frontend Team
  */
 
-import { serialize } from "./parser.js"
-import { PTOML_CELL_ID } from "./parser.js"
+import { serialize, PTOML_CELL_ID, MTOML_CELL_ID } from "./parser.js"
 
 export const MODULE_CELL_ID = "00000000-c0de-ce11-0000-000000000000"
 

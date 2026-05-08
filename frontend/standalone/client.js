@@ -264,6 +264,8 @@ export class Worker {
         this.connected = false
         /** @type {boolean} */
         this.initializing = true
+        /** @type {Promise<boolean>|null} */
+        this._connecting = null
         /** @type {*} */
         this.notebook_status = null
 
@@ -307,11 +309,18 @@ export class Worker {
         }
 
         return new Promise((resolve, reject) => {
-            const cleanup = this.onUpdate(() => {
-                if (this.isIdle() === ready) {
-                    cleanup()
-                    resolve()
-                }
+            let cleanupUpdate = () => {}
+            let cleanupConn = () => {}
+            const finish = (fn) => {
+                cleanupUpdate()
+                cleanupConn()
+                fn()
+            }
+            cleanupUpdate = this.onUpdate(() => {
+                if (this.isIdle() === ready) finish(resolve)
+            })
+            cleanupConn = this.onConnectionStatus(({ connected, hopeless }) => {
+                if (!connected || hopeless) finish(() => reject(new Error("Connection lost while waiting")))
             })
         })
     }
@@ -326,59 +335,68 @@ export class Worker {
      * @throws {Error} If connection fails or notebook doesn't exist
      */
     async connect() {
-        if (this.connected) {
+        if (this.client) {
             return true
         }
+        // Single-flight: concurrent connect() calls share the same in-flight promise.
+        if (this._connecting) {
+            return this._connecting
+        }
 
-        try {
-            this.client = await create_pluto_connection({
-                ws_address: this.ws_address,
-                on_unrequested_update: this._handle_update.bind(this),
-                on_connection_status: this._handle_connection_status.bind(this),
-                on_reconnect: this._handle_reconnect.bind(this),
-                connect_metadata: { notebook_id: this.notebook_id },
-            })
-
-            // Initialize notebook state
-            if (this.client.notebook_exists) {
-                this.notebook_state = empty_notebook_state({
-                    notebook_id: this.notebook_id,
+        this._connecting = (async () => {
+            try {
+                this.client = await create_pluto_connection({
+                    ws_address: this.ws_address,
+                    on_unrequested_update: this._handle_update.bind(this),
+                    on_connection_status: this._handle_connection_status.bind(this),
+                    on_reconnect: this._handle_reconnect.bind(this),
+                    connect_metadata: { notebook_id: this.notebook_id },
                 })
 
-                // Ensure required structures exist for patches
-                if (!this.notebook_state.cell_results) {
-                    this.notebook_state.cell_results = {}
-                }
-                if (!this.notebook_state.status_tree) {
-                    this.notebook_state.status_tree = {
-                        subtasks: {},
-                        finished_at: 0,
-                        name: "noop",
-                        started_at: Date.now(),
-                        success: true,
-                        timing: "local",
+                // Initialize notebook state
+                if (this.client.notebook_exists) {
+                    this.notebook_state = empty_notebook_state({
+                        notebook_id: this.notebook_id,
+                    })
+
+                    // Ensure required structures exist for patches
+                    if (!this.notebook_state.cell_results) {
+                        this.notebook_state.cell_results = {}
+                    }
+                    if (!this.notebook_state.status_tree) {
+                        this.notebook_state.status_tree = {
+                            subtasks: {},
+                            finished_at: 0,
+                            name: "noop",
+                            started_at: Date.now(),
+                            success: true,
+                            timing: "local",
+                        }
                     }
                 }
-            }
 
-            if (!this.client.notebook_exists) {
-                console.error("Notebook does not exist. Not connecting.")
+                if (!this.client.notebook_exists) {
+                    console.error("Notebook does not exist. Not connecting.")
+                    return false
+                }
+
+                // Send initial update_notebook request to sync state
+                console.debug("Sending update_notebook request...")
+                const response = await this.client.send("update_notebook", { updates: [] }, { notebook_id: this.notebook_id }, false)
+                console.debug({ response })
+                console.debug("Received update_notebook request")
+
+                this.initializing = false
+
+                return true
+            } catch (error) {
+                console.error("Failed to connect to Pluto backend:", error)
                 return false
+            } finally {
+                this._connecting = null
             }
-
-            // Send initial update_notebook request to sync state
-            console.debug("Sending update_notebook request...")
-            const response = await this.client.send("update_notebook", { updates: [] }, { notebook_id: this.notebook_id }, false)
-            console.debug({ response })
-            console.debug("Received update_notebook request")
-
-            this.initializing = false
-
-            return true
-        } catch (error) {
-            console.error("Failed to connect to Pluto backend:", error)
-            return false
-        }
+        })()
+        return this._connecting
     }
 
     /**
@@ -711,19 +729,25 @@ end`,
     async waitSnippet(index = 0, code = "", metadata = {}, cell_id = uuidv4(), timeout = -1) {
         await this.addSnippet(index, code, metadata, cell_id)
         return await new Promise((resolve, reject) => {
+            let cleanupUpdate = () => {}
+            let cleanupConn = () => {}
             let t = 0
-            const cleanup = this.onUpdate((v) => {
+            const finish = (fn) => {
+                cleanupUpdate()
+                cleanupConn()
+                clearTimeout(t)
+                fn()
+            }
+            cleanupUpdate = this.onUpdate((v) => {
                 if (v.type === "notebook_updated" && isTerminalStatus(getStatus(this, cell_id))) {
-                    resolve(getResult(this, cell_id))
-                    cleanup()
-                    clearTimeout(t)
+                    finish(() => resolve(getResult(this, cell_id)))
                 }
             })
+            cleanupConn = this.onConnectionStatus(({ connected, hopeless }) => {
+                if (!connected || hopeless) finish(() => reject(new Error("Connection lost while waiting for snippet")))
+            })
             if (timeout > 0) {
-                t = setTimeout(() => {
-                    cleanup()
-                    reject(null)
-                }, timeout)
+                t = setTimeout(() => finish(() => reject(new Error(`waitSnippet timed out after ${timeout}ms`))), timeout)
             }
         })
     }
@@ -852,6 +876,28 @@ end`,
         })
 
         this._notify_update("notebook_moved", { path: new_path })
+    }
+
+    /**
+     * Show or hide a cell's source code in the Pluto editor (the `╟─`/`╠═` cell-order marker).
+     * Drives the same patch path as the editor UI so server state, local state, and disk-saved
+     * file all stay in sync.
+     *
+     * @param {string} cell_id
+     * @param {boolean} folded
+     * @returns {Promise<void>}
+     * @throws {Error} If not connected, or if the cell does not exist
+     */
+    async setCellFolded(cell_id, folded) {
+        if (!this.client || !this.notebook_state) {
+            throw new Error("Not connected to notebook")
+        }
+        if (!this.notebook_state.cell_inputs?.[cell_id]) {
+            throw new Error(`Cell ${cell_id} not found`)
+        }
+        await this._update_notebook_state((notebook) => {
+            notebook.cell_inputs[cell_id].code_folded = folded
+        })
     }
 
     /**

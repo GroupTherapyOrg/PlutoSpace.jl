@@ -288,7 +288,7 @@ function parseCells(lines, startIndex) {
             const trimmedCode = rawCode.trim()
             const isDisabledByWrapper = trimmedCode.startsWith(DISABLED_PREFIX.trim()) && trimmedCode.endsWith(DISABLED_SUFFIX.trim())
             if (isDisabledByWrapper) {
-                code = rawCode.slice(rawCode.indexOf(DISABLED_PREFIX.trim()) + DISABLED_PREFIX.length, rawCode.lastIndexOf(DISABLED_SUFFIX.trim()))
+                code = rawCode.slice(rawCode.indexOf(DISABLED_PREFIX) + DISABLED_PREFIX.length, rawCode.lastIndexOf(DISABLED_SUFFIX))
                 metadata.disabled = true
                 // If there was no explicit disabled metadata, this is an implicit disabled cell
                 if (!hasExplicitDisabledMetadata) {
