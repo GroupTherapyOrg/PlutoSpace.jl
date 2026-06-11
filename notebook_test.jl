@@ -27,11 +27,11 @@ end
 # also slow, also unpredictable
 r2 = begin
 	sleep(6)
-	round(randn() * 1000; digits=1)
+	round(randn() * 500; digits=2)
 end
 
 # ╔═╡ c1000003-0000-4000-8000-000000000003
-total = r1 * 2 + x
+total = r1 * 2 + x^2
 
 # ╔═╡ c1000004-0000-4000-8000-000000000004
 verdict = r2 > 0 ? "positive" : "negative"

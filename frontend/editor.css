@@ -1832,7 +1832,8 @@ pluto-cell.code_folded.show_input > pluto-input:not(:focus-within) {
     opacity: 0.4;
 }
 
-pluto-cell.code_differs > pluto-input > .cm-editor {
+pluto-cell.code_differs > pluto-input > .cm-editor,
+pluto-cell.stale > pluto-input > .cm-editor {
     border: 1px solid var(--code-differs-cell-color);
     border-left: none;
 }
@@ -1991,7 +1992,8 @@ pluto-editor:not(.___) pluto-cell.selected > pluto-trafficlight {
     background-clip: padding-box;
 }
 
-pluto-editor:not(.___) pluto-cell.code_differs > pluto-trafficlight {
+pluto-editor:not(.___) pluto-cell.code_differs > pluto-trafficlight,
+pluto-editor:not(.___) pluto-cell.stale > pluto-trafficlight {
     background: var(--code-differs-cell-color);
     border-left-color: var(--code-differs-cell-color);
     background-clip: padding-box;
@@ -2000,14 +2002,6 @@ pluto-editor:not(.___) pluto-cell.code_differs > pluto-trafficlight {
 pluto-editor:not(.___) pluto-cell.errored > pluto-trafficlight {
     background: var(--error-cell-color);
     border-left-color: var(--error-cell-color);
-    background-clip: padding-box;
-}
-
-/* stale wins over errored (knowing the output is outdated is more actionable than the old error),
-   but NOT over queued/running — while a stale cell executes, the normal activity visuals must show */
-pluto-editor:not(.___) pluto-cell.stale:not(.running):not(.queued) > pluto-trafficlight {
-    background: var(--stale-cell-color);
-    border-left-color: var(--stale-cell-color);
     background-clip: padding-box;
 }
 
@@ -2817,11 +2811,13 @@ pluto-cell.code_folded.show_input > pluto-input:not(:focus-within) {
 }
 
 pluto-cell:focus-within > pluto-runarea,
-pluto-cell.code_differs > pluto-runarea {
+pluto-cell.code_differs > pluto-runarea,
+pluto-cell.stale > pluto-runarea {
     opacity: 100%;
 }
 
-pluto-cell.code_differs > pluto-runarea > button {
+pluto-cell.code_differs > pluto-runarea > button,
+pluto-cell.stale > pluto-runarea > button {
     animation-name: 👀;
     animation-duration: 4s;
     animation-iteration-count: infinite;
@@ -4134,7 +4130,8 @@ pluto-input .cm-editor .cm-content {
     /* height: auto; */
 }
 
-pluto-cell.code_differs > pluto-input > .cm-editor .cm-gutters {
+pluto-cell.code_differs > pluto-input > .cm-editor .cm-gutters,
+pluto-cell.stale > pluto-input > .cm-editor .cm-gutters {
     /* background: hsla(46, 70%, 88%, 1); */
     background-color: var(--cm-color-code-differs-gutters);
 }

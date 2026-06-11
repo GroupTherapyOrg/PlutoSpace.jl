@@ -50,36 +50,36 @@ text_representation = "334"
 
 [cells.c1000002-0000-4000-8000-000000000002]
 errored = false
-execution_key = "47f686590d18a739"
+execution_key = "f0415a445086a6c4"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pTQ1My42sHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKt4luQMC3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaJyMg=="
-result_hash = "51029c4be295535a"
-runtime_ns = 6002153500
-text_representation = "453.6"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pjQ1MS4xOLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairfdPf65t2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjI="
+result_hash = "ace10fd11e6e6370"
+runtime_ns = 6002225542
+text_representation = "451.18"
 
 [cells.c1000003-0000-4000-8000-000000000003]
 errored = false
-execution_key = "c04b4647ae472b97"
+execution_key = "fec006a62a6e1d78"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozc2OLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Haird9Acnit2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWldG90YWw="
-result_hash = "7661b134258c4cd7"
-runtime_ns = 11000
-text_representation = "768"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pTEwNjY4sHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKt9Qfhte3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaV0b3RhbA=="
+result_hash = "401cd42bfb90498a"
+runtime_ns = 28750
+text_representation = "10668"
 
 [cells.c1000004-0000-4000-8000-000000000004]
 errored = false
-execution_key = "259fe4c35647f0c0"
+execution_key = "d7c3db716e501048"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5qiJwb3NpdGl2ZSKwcGVyc2lzdF9qc19zdGF0ZcKkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq3iW5uGrdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3ZlcmRpY3Q="
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5qiJwb3NpdGl2ZSKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq33T5c7rdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3ZlcmRpY3Q="
 result_hash = "7e11991abc3bbc34"
 runtime_ns = 0
 text_representation = "\"positive\""
 
 [cells.c1000005-0000-4000-8000-000000000005]
 errored = false
-execution_key = "21c290b21e8c0222"
+execution_key = "2cf549d89cc20e0c"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52S0iVE9UQUxTOiA3NjggLy8gUjIgQ0FNRSBPVVQgUE9TSVRJVkUgKDQ1My42KSKwcGVyc2lzdF9qc19zdGF0ZcKkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq3iW6CKLdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3N1bW1hcnk="
-result_hash = "e8942c9813448b65"
-runtime_ns = 12917
-text_representation = "\"TOTALS: 768 // R2 CAME OUT POSITIVE (453.6)\""
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52TAiVE9UQUxTOiAxMDY2OCAvLyBSMiBDQU1FIE9VVCBQT1NJVElWRSAoNDUxLjE4KSKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq33T50jrdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3N1bW1hcnk="
+result_hash = "4f46121b9987941e"
+runtime_ns = 26958
+text_representation = "\"TOTALS: 10668 // R2 CAME OUT POSITIVE (451.18)\""
