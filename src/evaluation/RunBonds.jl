@@ -58,6 +58,11 @@ function set_bond_values_reactive(;
     end
     to_reeval = PlutoDependencyExplorer.where_referenced(notebook.topology, syms_to_set_set)
 
+    if is_lazy(session)
+        # pull in stale or workspace-cold ancestors, so that moving a widget in a restored (cold) or partially-stale notebook re-runs whatever its dependents need
+        to_reeval = expand_stale_ancestors(notebook, Vector{Cell}(to_reeval))
+    end
+
     run_reactive_async!(session, notebook, to_reeval; deletion_hook=custom_deletion_hook, save=false, user_requested_run=false, run_async=false, bond_value_pairs, kwargs...)
 end
 

@@ -1,6 +1,6 @@
 module SessionActions
 
-import ..Pluto: Pluto, Status, ServerSession, Notebook, Cell, emptynotebook, tamepath, new_notebooks_directory, without_pluto_file_extension, numbered_until_new, cutename, readwrite, update_save_run!, update_nbpkg_cache!, update_from_file, wait_until_file_unchanged, putnotebookupdates!, putplutoupdates!, load_notebook, clientupdate_notebook_list, WorkspaceManager, try_event_call, NewNotebookEvent, OpenNotebookEvent, ShutdownNotebookEvent, @asynclog, ProcessStatus, maybe_convert_path_to_wsl, move_notebook!, Throttled, is_lazy
+import ..Pluto: Pluto, Status, ServerSession, Notebook, Cell, emptynotebook, tamepath, new_notebooks_directory, without_pluto_file_extension, numbered_until_new, cutename, readwrite, update_save_run!, update_nbpkg_cache!, update_from_file, wait_until_file_unchanged, putnotebookupdates!, putplutoupdates!, load_notebook, clientupdate_notebook_list, WorkspaceManager, try_event_call, NewNotebookEvent, OpenNotebookEvent, ShutdownNotebookEvent, @asynclog, ProcessStatus, maybe_convert_path_to_wsl, move_notebook!, Throttled, is_lazy, load_output_cache!
 using FileWatching
 import ..Pluto.DownloadCool: download_cool
 import HTTP
@@ -96,11 +96,11 @@ function open(session::ServerSession, path::AbstractString;
     end
 
     
-    if execution_allowed && session.options.evaluation.run_notebook_on_load
+    if execution_allowed && session.options.evaluation.run_notebook_on_load && !is_lazy(session)
         Pluto._report_business_cells_planned!(notebook)
     end
-    
-    if !execution_allowed
+
+    if !execution_allowed || is_lazy(session)
         Status.delete_business!(notebook.status_tree, :run)
         Status.delete_business!(notebook.status_tree, :workspace)
         Status.delete_business!(notebook.status_tree, :pkg)
@@ -108,7 +108,17 @@ function open(session::ServerSession, path::AbstractString;
 
     update_nbpkg_cache!(notebook)
 
-    update_save_run!(session, notebook, notebook.cells; run_async, prerender_text=true)
+    if is_lazy(session)
+        # Lazy mode: don't run on open. Restore cached outputs (if a cache sidecar exists), then mark all cells stale — verification immediately un-marks every cell whose execution key proves its restored output is current. Those cells display their old output and stay `workspace_cold` until something actually runs.
+        load_output_cache!(notebook)
+        update_save_run!(session, notebook, notebook.cells; run_async, external_trigger=true)
+        if execution_allowed
+            # warm up the worker process in the background so the first real run is fast
+            @asynclog WorkspaceManager.get_workspace((session, notebook))
+        end
+    else
+        update_save_run!(session, notebook, notebook.cells; run_async, prerender_text=true)
+    end
     add(session, notebook; run_async)
     try_event_call(session, OpenNotebookEvent(notebook))
     return notebook

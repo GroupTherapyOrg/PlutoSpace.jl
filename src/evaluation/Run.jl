@@ -246,6 +246,14 @@ function run_reactive_core!(
 	Status.report_business_finished!(run_status)
     # early cutoff: cells that were marked stale, but whose inputs provably did not change after this run, are un-marked without running
     verify_stale!(notebook)
+    if save && is_lazy(session)
+        # persist outputs + execution keys so they survive restarts and are readable by external tools
+        try
+            save_output_cache(notebook)
+        catch e
+            @warn "Failed to write the output cache sidecar" exception = (e, catch_backtrace())
+        end
+    end
     flush(send_notebook_changes_throttled)
     return new_order
 end
@@ -344,8 +352,9 @@ function set_output!(cell::Cell, run, expr_cache::ExprAnalysisCache; persist_js_
 	cell.runtime = run.runtime
 	cell.errored = run.errored
 	cell.running = cell.queued = false
-	# the output now reflects the current code
+	# the output now reflects the current code, and the cell's variables now exist in this workspace
 	cell.stale = false
+	cell.workspace_cold = false
 end
 
 function clear_output!(cell::Cell)
@@ -373,6 +382,7 @@ function relay_reactivity_error!(cell::Cell, error::Exception)
 	cell.errored = true
 	# the displayed error reflects the current code
 	cell.stale = false
+	cell.workspace_cold = false
 end
 
 will_run_code(notebook::Notebook) = notebook.process_status ∈ (ProcessStatus.ready, ProcessStatus.starting)
@@ -457,11 +467,12 @@ function verify_stale!(notebook::Notebook)::Vector{Cell}
 end
 
 """
-Expand a set of cells with all of their *stale ancestors*: cells that are upstream (via the dependency graph) and marked `stale`.
+Expand a set of cells with all of their *stale or workspace-cold ancestors*: cells that are upstream (via the dependency graph) and either marked `stale` (their code changed without running) or `workspace_cold` (their output was restored from cache, but their variables don't exist in this process).
 
-Used in lazy mode for pull-based runs: when you run a cell whose inputs are stale, the stale inputs run too, so your cell never computes against outdated values. The reactive run itself then takes care of everything downstream.
+Used in lazy mode for pull-based runs: when you run a cell whose inputs are stale or cold, those inputs run too, so your cell never computes against outdated or missing values. The reactive run itself then takes care of everything downstream.
 """
 function expand_stale_ancestors(notebook::Notebook, cells::Vector{Cell})::Vector{Cell}
+	needs_pull(c::Cell) = c.stale || c.workspace_cold
 	seen = Set{Cell}(cells)
 	queue = copy(cells)
 	stale_ancestors = Cell[]
@@ -472,7 +483,7 @@ function expand_stale_ancestors(notebook::Notebook, cells::Vector{Cell})::Vector
 				if u isa Cell && u ∉ seen
 					push!(seen, u)
 					push!(queue, u)
-					u.stale && push!(stale_ancestors, u)
+					needs_pull(u) && push!(stale_ancestors, u)
 				end
 			end
 		end

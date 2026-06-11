@@ -129,6 +129,7 @@ function notebook_to_js(notebook::Notebook)
                 "logs" => FirebaseyUtils.AppendonlyMarker(cell.logs),
                 "depends_on_skipped_cells" => cell.depends_on_skipped_cells,
                 "stale" => cell.stale,
+                "workspace_cold" => cell.workspace_cold,
             )
         for (id, cell) in notebook.cells_dict),
         "cell_order" => notebook.cell_order,

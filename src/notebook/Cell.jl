@@ -65,6 +65,9 @@ Base.@kwdef mutable struct Cell <: PlutoDependencyExplorer.AbstractCell
     "The `execution_key` (own code + immediate upstream result hashes) at the moment the displayed output was produced. A cell is verifiably up-to-date iff this matches its current execution key and no upstream cell is stale."
     execution_key_produced::UInt64=zero(UInt64)
 
+    "True when this cell's output was restored from the output cache: the *display* is current, but the cell's variables do not exist in the workspace (it never ran in this process). Cold cells are pulled in like stale cells when a dependent runs. Cleared when the cell runs. Not persisted."
+    workspace_cold::Bool=false
+
     # note that this field might be moved somewhere else later. If you are interested in visualizing the cell dependencies, take a look at the cell_dependencies field in the frontend instead.
     cell_dependencies::CellDependencies{Cell}=CellDependencies{Cell}(Dict{Symbol,Vector{Cell}}(), Dict{Symbol,Vector{Cell}}(), 99)
 
