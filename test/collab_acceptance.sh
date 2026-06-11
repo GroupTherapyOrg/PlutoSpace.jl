@@ -91,13 +91,13 @@ check "nothing stale afterwards" sh -c "'$CLI' status '$NB' | grep -q '0 stale'"
 check "sidecar cache file written" test -f "$NB.pluto-cache.toml"
 check "sidecar contains the output text" grep -q '"20"' "$NB.pluto-cache.toml"
 
-echo "--- 3. agent-style external edit (atomic temp+rename): stale closure appears"
+echo "--- 3. agent-style external edit (atomic temp+rename): the edited cell goes stale"
 sed 's/a = 1/a = 2/' "$NB" > "$NB.tmp" && mv "$NB.tmp" "$NB"
 sleep 3
-check "edited cell + dependents are stale, nothing ran" sh -c "'$CLI' status '$NB' | grep -q '3 stale'"
+check "exactly the edited cell is stale, nothing ran" sh -c "'$CLI' status '$NB' | grep -q '1 stale'"
 check "old output still displayed" sh -c "'$CLI' status '$NB' | grep -q 'output: 20'"
 
-echo "--- 4. run just the stale set; only the closure runs"
+echo "--- 4. run the stale cell; dependents re-run reactively"
 check "run --stale exits 0" "$CLI" run "$NB" --stale
 check "new outputs (c = 30)" sh -c "'$CLI' status '$NB' | grep -q 'output: 30'"
 

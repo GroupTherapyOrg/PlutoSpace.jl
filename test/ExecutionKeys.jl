@@ -24,50 +24,45 @@ import Pluto: Pluto, Notebook, ServerSession, SessionActions, Cell, update_run!,
         @test Pluto.immediate_upstream_cells(c) == [b]
     end
 
-    @testset "reverting an edit un-stales the whole closure" begin
+    @testset "reverting an edit un-stales the cell" begin
         file = read(notebook.path, String)
         write(notebook.path, replace(file, "a = 1" => "a = 2"))
         @test Pluto.update_from_file(🍭, notebook)
-        @test a.stale && b.stale && c.stale
+        # non-transitive: only the edited cell is marked
+        @test a.stale && !b.stale && !c.stale
 
         write(notebook.path, file)
         @test Pluto.update_from_file(🍭, notebook)
-        # the code is back to exactly what produced the outputs — verification clears everything, no runs needed
+        # the code is back to exactly what produced the output — verification clears the mark, no runs needed
         @test !a.stale && !b.stale && !c.stale
         @test a.output.body == "1"
     end
 
-    @testset "early cutoff: same result upstream clears downstream" begin
-        file = read(notebook.path, String)
-        write(notebook.path, replace(file, "a = 1" => "a = 1 #hi"))
-        @test Pluto.update_from_file(🍭, notebook)
-        @test a.stale && b.stale && c.stale
-
-        # simulate "a re-ran and produced the same result" without running b and c
-        a.code == "a = 1 #hi" || error("test setup wrong")
-        Pluto.record_execution_key!(a) # result unchanged (output still \"1\"), key now reflects the new code
-        a.stale = false
-
+    @testset "verification clears marks whose keys still match" begin
+        # mark b and c stale by hand (as the restart/load path does for every cell before verifying)
+        b.stale = true
+        c.stale = true
         cleared = Pluto.verify_stale!(notebook)
-        # b and c's execution keys are unchanged (their code and their upstream RESULTS are the same), so they are provably current
+        # their execution keys are unchanged (code and upstream RESULTS are the same), so they are provably current
         @test Set(cleared) == Set([b, c])
         @test !b.stale && !c.stale
     end
 
-    @testset "no false clears: changed upstream result keeps downstream stale" begin
+    @testset "no false clears: changed upstream result keeps a marked cell stale" begin
         file = read(notebook.path, String)
-        write(notebook.path, replace(file, "a = 1 #hi" => "a = 5"))
+        write(notebook.path, replace(file, "a = 1" => "a = 5"))
         @test Pluto.update_from_file(🍭, notebook)
-        @test a.stale && b.stale && c.stale
+        @test a.stale && !b.stale && !c.stale
 
         # simulate "a re-ran and produced a DIFFERENT result"
         a.result_hash = hash("something else entirely")
         a.execution_key_produced = Pluto.current_execution_key(a)
         a.stale = false
 
+        b.stale = true # as the load path would before verification
         Pluto.verify_stale!(notebook)
         # b's key no longer matches (upstream result hash changed) — must stay stale
-        @test b.stale && c.stale
+        @test b.stale
 
         # undo the simulation: cell a's code (\"a = 5\") really never ran
         a.stale = true

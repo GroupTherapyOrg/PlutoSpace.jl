@@ -16,27 +16,27 @@ text_representation = "100"
 errored = false
 execution_key = "24cf0a52836ff587"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairdGj2GJt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheQ=="
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairhfcBykt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheQ=="
 result_hash = "b6a829b7f4a170ea"
-runtime_ns = 6250
+runtime_ns = 0
 text_representation = "300"
 
 [cells.a1b2c3d4-0000-4000-8000-123456789abc]
 errored = false
 execution_key = "8937b35358242ffe"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozQwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairdGj3f3t2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheg=="
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozQwMLBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairhfcD5Lt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheg=="
 result_hash = "572a5dd38c13e370"
-runtime_ns = 42
+runtime_ns = 0
 text_representation = "400"
 
 [cells.b2c3d4e5-0000-4000-8000-abcdef012345]
 errored = false
 execution_key = "68aa4a8db9f9c50"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52S8idGhlIGFuc3dlciB6IGlzIDQwMCAoYW5kIHggaXMgdW50b3VjaGVkOiAxMDApIrBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairdGmQNtt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWnbWVzc2FnZQ=="
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52S8idGhlIGFuc3dlciB6IGlzIDQwMCAoYW5kIHggaXMgdW50b3VjaGVkOiAxMDApIrBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairhfcGpqt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWnbWVzc2FnZQ=="
 result_hash = "fb0da430c5038cc0"
-runtime_ns = 19292
+runtime_ns = 10958
 text_representation = "\"the answer z is 400 (and x is untouched: 100)\""
 
 [cells.c1000001-0000-4000-8000-000000000001]

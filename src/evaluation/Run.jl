@@ -392,20 +392,17 @@ will_run_pkg(notebook::Notebook) = notebook.process_status !== ProcessStatus.wai
 is_lazy(session::ServerSession) = session.options.evaluation.on_code_change == "lazy"
 
 """
-Mark `roots` and all cells that (indirectly) depend on them as `stale`, without running anything. Returns the marked cells.
+Mark `roots` (the cells whose code changed) as `stale`, without running anything. Returns the cells that remain marked after verification.
 
-This is the lazy-mode counterpart of a reactive run: the same topological closure that a reactive run *would* execute is instead flagged, so that clients (and external tools reading the notebook state) can see exactly which outputs no longer match the current code.
+Deliberately NOT transitive: just like editing a cell in the browser only marks *that* cell as modified, an external edit only marks the edited cells. Dependents re-run reactively when a stale cell runs — Pluto's normal behavior — so there is no need to decorate the whole downstream closure.
 """
 function mark_stale!(notebook::Notebook, topology::NotebookTopology, roots::Vector{Cell})::Vector{Cell}
-	order = topological_order_cached(topology, roots)
-	marked = Cell[]
-	for cell in union(order.runnable, keys(order.errable))
+	for cell in roots
 		cell.stale = true
-		push!(marked, cell)
 	end
-	# verification immediately clears marks that are provably unnecessary — e.g. a cell edited back to exactly the code that produced its output (and, transitively, its dependents)
+	# verification immediately clears marks that are provably unnecessary — e.g. a cell edited back to exactly the code that produced its output
 	verify_stale!(notebook)
-	filter(c -> c.stale, marked)
+	filter(c -> c.stale, roots)
 end
 
 ###
@@ -450,14 +447,13 @@ function record_execution_key!(cell::Cell)
 end
 
 """
-Clear stale marks that can be *proven* unnecessary: the cell's current execution key matches the key that produced its output, and nothing upstream is stale. Iterates in topological order so that un-staling propagates downstream in one sweep. Cells marked `always_stale` are never cleared. Returns the cleared cells.
+Clear stale marks that can be *proven* unnecessary: the cell's current execution key (own code + immediate upstream result hashes) matches the key that produced its displayed output. This is what makes reverting an edit un-stale a cell without running it, and what decides which cached outputs to trust when a notebook is reopened. Cells marked `always_stale` are never cleared. Returns the cleared cells.
 """
 function verify_stale!(notebook::Notebook)::Vector{Cell}
 	cleared = Cell[]
 	for cell in collect(notebook._cached_topological_order)
 		cell.stale || continue
 		is_always_stale(cell) && continue
-		any(u -> u.stale, immediate_upstream_cells(cell)) && continue
 		if current_execution_key(cell) == cell.execution_key_produced
 			cell.stale = false
 			push!(cleared, cell)

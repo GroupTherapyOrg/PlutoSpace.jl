@@ -71,7 +71,7 @@ import Pluto: Pluto, Notebook, ServerSession, SessionActions, Cell, update_run!
 
         @test !a.stale # unchanged, verified from cache
         @test b.stale  # edited while server was off
-        @test d.stale  # depends on b
+        @test !d.stale # depends on b, but only edited cells are marked — it re-runs reactively when b runs
         @test !c.stale # unrelated (cached rand value is trusted — see always_stale for opting out)
         @test b.output.body == "2" # old output still displayed
 

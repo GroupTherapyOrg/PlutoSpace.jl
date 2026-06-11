@@ -33,12 +33,11 @@ using Pluto.WorkspaceManager: poll
         write(notebook.path, replace(file1, "a = 1" => "a = 2"))
         @test Pluto.update_from_file(🍭, notebook)
 
-        # the changed cell and its (transitive) dependents are stale
+        # ONLY the edited cell is marked — same as editing in the browser. Dependents will re-run reactively when it runs.
         @test notebook.cells[1].stale
-        @test notebook.cells[2].stale
-        @test notebook.cells[3].stale
-        @test notebook.cells[4].stale
-        # the unrelated cell is not
+        @test !notebook.cells[2].stale
+        @test !notebook.cells[3].stale
+        @test !notebook.cells[4].stale
         @test !notebook.cells[5].stale
 
         # nothing ran: outputs still show the old values, and the unrelated cell was untouched
@@ -53,9 +52,9 @@ using Pluto.WorkspaceManager: poll
     end
 
     @testset "pull semantics: running a cell runs its stale ancestors" begin
-        # request only cell d — expansion must pull in its stale ancestors a, b, c
+        # request only cell d — expansion must pull in its stale ancestor a; b and c re-run as part of the reactive closure
         to_run = Pluto.expand_stale_ancestors(notebook, Cell[notebook.cells[4]])
-        @test Set(to_run) == Set(notebook.cells[1:4])
+        @test Set(to_run) == Set([notebook.cells[1], notebook.cells[4]])
 
         update_run!(🍭, notebook, to_run)
 
@@ -74,7 +73,7 @@ using Pluto.WorkspaceManager: poll
         @test Pluto.update_from_file(🍭, notebook)
 
         @test notebook.cells[2].stale # b changed
-        @test notebook.cells[4].stale # d depends on b
+        @test !notebook.cells[4].stale # d depends on b, but only edited cells are marked
         @test notebook.cells[5].stale # e changed
         @test !notebook.cells[1].stale # a is upstream, unaffected
         @test !notebook.cells[3].stale # c does not depend on b
@@ -133,7 +132,7 @@ using Pluto.WorkspaceManager: poll
         end
         # marked stale, but did not run
         @test notebook.cells[1].output.body == "3"
-        @test notebook.cells[2].stale
+        @test !notebook.cells[2].stale # only the edited cell is marked
 
         # running the stale cells triggers a server-side save; the watcher must recognize its own save (content hash) and not react to it
         update_save_run!(🍭, notebook, Pluto.expand_stale_ancestors(notebook, filter(c -> c.stale, notebook.cells)))

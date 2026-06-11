@@ -16,11 +16,12 @@ Pluto.run(on_code_change="lazy")
 That's the whole setup. `on_code_change="lazy"` changes three things:
 
 1. **Edits mark cells stale instead of running them.** When the notebook `.jl` file changes
-   on disk (lazy mode watches it automatically), the changed cells and everything that
-   depends on them get an amber *stale* marker in the browser — within about a second —
-   and **nothing executes**. A "N cells are stale (RUN)" notice appears; click it (or run
-   any cell) when *you* decide. Pull semantics: running a cell first runs any stale or
-   cold cells it depends on, so nothing ever computes against outdated inputs.
+   on disk (lazy mode watches it automatically), the edited cells get the familiar yellow
+   *modified* marker in the browser — the exact same look as typing in a cell yourself —
+   within about a second, and **nothing executes**. A "N cells are stale (RUN)" notice
+   appears; click it (or run any cell) when *you* decide. Exactly like normal Pluto, running
+   a cell re-runs its dependents reactively; and pull semantics make sure any stale or cold
+   cells it depends on run first, so nothing ever computes against outdated inputs.
 
 2. **Outputs survive restarts.** After every run, outputs and execution keys are written to
    `<notebook>.jl.pluto-cache.toml` — a plain-TOML, deletable cache sidecar. Reopening the

@@ -15,7 +15,6 @@ import { BottomRightPanel } from "./BottomRightPanel.js"
 import { DropRuler, get_drop_index_for_paste } from "./DropRuler.js"
 import { SelectionArea } from "./SelectionArea.js"
 import { RecentlyDisabledInfo, UndoDelete } from "./UndoDelete.js"
-import { RunStaleCellsButton } from "./RunStaleCellsButton.js"
 import { SlideControls } from "./SlideControls.js"
 import { Scroller } from "./Scroller.js"
 import { ExportBanner } from "./ExportBanner.js"
@@ -121,7 +120,10 @@ const statusmap = (/** @type {EditorState} */ state, /** @type {LaunchParameters
     offer_local: state.backend_launch_phase === BackendLaunchPhase.wait_for_user && launch_params.pluto_server_url != null,
     binder: launch_params.binder_url != null && state.backend_launch_phase != null,
     code_differs: state.notebook.cell_order.some(
-        (cell_id) => state.cell_inputs_local[cell_id] != null && state.notebook.cell_inputs[cell_id]?.code !== state.cell_inputs_local[cell_id].code
+        (cell_id) =>
+            (state.cell_inputs_local[cell_id] != null && state.notebook.cell_inputs[cell_id]?.code !== state.cell_inputs_local[cell_id].code) ||
+            // a cell that is stale on the server (e.g. the notebook file was edited by an external tool in lazy mode) counts as "changed but not run", exactly like a local draft — same badge, same Ctrl+S
+            (state.notebook.cell_results[cell_id]?.stale ?? false)
     ),
     recording_waiting_to_start: state.recording_waiting_to_start,
     is_recording: state.is_recording,
@@ -407,7 +409,7 @@ export class Editor extends Component {
             update_notebook: (...args) => this.update_notebook(...args),
             set_doc_query: (query) => this.setState({ desired_doc_query: query }),
             set_local_cell: (cell_id, new_val) => {
-                return this.setStatePromise(
+                const result = this.setStatePromise(
                     immer((/** @type {EditorState} */ state) => {
                         state.cell_inputs_local[cell_id] = {
                             code: new_val,
@@ -415,6 +417,21 @@ export class Editor extends Component {
                         state.selected_cells = []
                     })
                 )
+                if (this.state.notebook.on_code_change === "lazy") {
+                    // Lazy mode: after a pause in typing, sync the edit to the server (and the notebook file) WITHOUT running — the same path an external file edit takes. The cell becomes stale for every participant (other tabs, agents reading the file or the API), making browser edits and file edits indistinguishable.
+                    this.lazy_code_sync_timers ??= {}
+                    clearTimeout(this.lazy_code_sync_timers[cell_id])
+                    this.lazy_code_sync_timers[cell_id] = setTimeout(() => {
+                        const local = this.state.cell_inputs_local[cell_id]?.code
+                        const remote = this.state.notebook.cell_inputs[cell_id]?.code
+                        if (local != null && remote != null && local !== remote) {
+                            this.update_notebook((notebook) => {
+                                notebook.cell_inputs[cell_id].code = local
+                            })
+                        }
+                    }, 1500)
+                }
+                return result
             },
             set_unsubmitted_global_definitions: (cell_id, new_val) => {
                 return this.setStatePromise(
@@ -649,8 +666,10 @@ export class Editor extends Component {
             set_and_run_all_changed_remote_cells: async () => {
                 const changed = this.state.notebook.cell_order.filter(
                     (cell_id) =>
-                        this.state.cell_inputs_local[cell_id] != null &&
-                        this.state.notebook.cell_inputs[cell_id]?.code !== this.state.cell_inputs_local[cell_id]?.code
+                        (this.state.cell_inputs_local[cell_id] != null &&
+                            this.state.notebook.cell_inputs[cell_id]?.code !== this.state.cell_inputs_local[cell_id]?.code) ||
+                        // stale cells (e.g. from external file edits in lazy mode) are "changed but not run" too — Ctrl+S runs them all the same
+                        (this.state.notebook.cell_results[cell_id]?.stale ?? false)
                 )
                 await this.actions.set_and_run_multiple(changed)
                 return changed.length > 0
@@ -1853,10 +1872,6 @@ ${t("t_key_autosave_description")}`
                     <${RecentlyDisabledInfo}
                         recently_auto_disabled_cells=${this.state.recently_auto_disabled_cells}
                         notebook=${this.state.notebook}
-                    />
-                    <${RunStaleCellsButton}
-                        notebook=${this.state.notebook}
-                        on_run=${(cell_ids) => this.actions.set_and_run_multiple(cell_ids)}
                     />
                     <${UndoDelete}
                         recently_deleted=${this.state.recently_deleted}

@@ -58,7 +58,6 @@ pluto-editor.disable_ui .fix-with-ai {
     .MJX_HoverRegion,
     .MJX_LiveRegion,
     nav#undo_delete,
-    nav#run_stale_cells,
     .language-picker {
         display: none !important;
     }

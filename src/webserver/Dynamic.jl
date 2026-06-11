@@ -97,10 +97,11 @@ Firebasey.use_triple_equals_for_arrays[] = true
 # - cell_dependencies > * > downstream_cells_map > * > 
 # - cell_dependencies > * > upstream_cells_map > * > 
 
-function notebook_to_js(notebook::Notebook)
+function notebook_to_js(notebook::Notebook; on_code_change::String=Configuration.ON_CODE_CHANGE_DEFAULT)
     Dict{String,Any}(
         "pluto_version" => PLUTO_VERSION_STR,
         "julia_version" => JULIA_VERSION_STR,
+        "on_code_change" => on_code_change,
         "notebook_id" => notebook.notebook_id,
         "path" => notebook.path,
         "shortpath" => basename(notebook.path),
@@ -182,7 +183,7 @@ function send_notebook_changes!(🙋::ClientRequest; commentary::Any=nothing)
         counter = update_counter_for_debugging[] += 1
         
         if !isempty(🙋.session.connected_clients)
-            notebook_dict = notebook_to_js(🙋.notebook)
+            notebook_dict = notebook_to_js(🙋.notebook; on_code_change=🙋.session.options.evaluation.on_code_change)
 
             for (_, client) in 🙋.session.connected_clients
                 if client.connected_notebook !== nothing && client.connected_notebook.notebook_id == 🙋.notebook.notebook_id
@@ -340,8 +341,22 @@ responses[:update_notebook] = function response_update_notebook(🙋::ClientRequ
             if skip_as_script_changed
                 # If skip_as_script has changed but no cell run is happening we want to update the notebook dependency here before saving the file
                 update_skipped_cells_dependency!(notebook)
-            end  
+            end
             save_notebook(🙋.session, notebook)
+        end
+
+        if is_lazy(🙋.session) && CodeChanged() ∈ changes
+            # Lazy mode: a code edit from the browser takes the SAME path as an external file edit — the code is saved to the file and the cell is marked stale; nothing runs until requested. This makes browser edits and file edits (e.g. by an agent) indistinguishable to every other participant.
+            # (When this update is part of a Shift+Enter, the run request that follows runs the cell right away, exactly like vanilla Pluto.)
+            changed_code_cells = Cell[
+                notebook.cells_dict[UUID(patch.path[2])]
+                for patch in patches
+                if length(patch.path) >= 2 &&
+                    patch.path[1] == "cell_inputs" &&
+                    haskey(notebook.cells_dict, UUID(patch.path[2])) &&
+                    !isempty(strip(notebook.cells_dict[UUID(patch.path[2])].code)) # freshly added empty cells aren't meaningfully stale
+            ]
+            isempty(changed_code_cells) || update_save_run!(🙋.session, notebook, changed_code_cells; external_trigger=true, save=true)
         end
 
         let bond_changes = filter(x -> x isa BondChanged, changes)
