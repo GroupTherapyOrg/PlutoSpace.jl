@@ -124,6 +124,7 @@ function run_reactive_core!(
         cell.queued = false
 		cell.depends_on_disabled_cells = false
         relay_reactivity_error!(cell, error)
+        record_execution_key!(cell)
     end
 
 	# Save the notebook. In most cases, this is the only time that we save the notebook, so any state changes that influence the file contents (like `depends_on_disabled_cells`) should be behind this point. (More saves might happen if a macro expansion or package using happens.)
@@ -205,6 +206,7 @@ function run_reactive_core!(
         end
 
         cell.running = false
+        record_execution_key!(cell)
 		Status.report_business_finished!(cell_status, Symbol(i), !skip && !run.errored)
 
         defined_macros_in_cell = defined_macros(new_topology, cell) |> Set{Symbol}
@@ -242,6 +244,8 @@ function run_reactive_core!(
 
     notebook.wants_to_interrupt = false
 	Status.report_business_finished!(run_status)
+    # early cutoff: cells that were marked stale, but whose inputs provably did not change after this run, are un-marked without running
+    verify_stale!(notebook)
     flush(send_notebook_changes_throttled)
     return new_order
 end
@@ -389,7 +393,67 @@ function mark_stale!(notebook::Notebook, topology::NotebookTopology, roots::Vect
 		cell.stale = true
 		push!(marked, cell)
 	end
-	marked
+	# verification immediately clears marks that are provably unnecessary — e.g. a cell edited back to exactly the code that produced its output (and, transitively, its dependents)
+	verify_stale!(notebook)
+	filter(c -> c.stale, marked)
+end
+
+###
+# Execution keys: a verifying trace over the reactive graph (like build systems / salsa).
+#
+# Each cell records, at the moment it produces output:
+#   result_hash            = H(output body, mime, errored)
+#   execution_key_produced = H(own code ‖ sorted result_hashes of immediate upstream cells)
+#
+# A stale mark can then be *verified*: if a cell's current execution key still equals the key
+# that produced its output, and no upstream cell is stale, the displayed output is provably
+# up-to-date and the stale mark is cleared without running anything. This gives:
+#  - early cutoff: an upstream cell re-runs but produces the same result → downstream stays fresh
+#  - revert detection: editing a cell back to its original code un-stales the whole closure
+#  - restart-surviving staleness: keys and hashes persist in the notebook cache file
+###
+
+"Hash of the output a cell currently displays. Used as input to downstream execution keys."
+compute_result_hash(cell::Cell)::UInt64 = hash((cell.output.body, string(cell.output.mime), cell.errored))
+
+"The cells that define symbols this cell references, according to the (cached) dependency graph."
+function immediate_upstream_cells(cell::Cell)::Vector{Cell}
+	result = Cell[]
+	for upstream_cells in values(cell.cell_dependencies.upstream_cells_map), u in upstream_cells
+		if u isa Cell && u !== cell && u ∉ result
+			push!(result, u)
+		end
+	end
+	result
+end
+
+"The execution key of a cell as of right now: its own code combined with the result hashes of its immediate upstream cells."
+function current_execution_key(cell::Cell)::UInt64
+	upstream_hashes = sort!(UInt64[u.result_hash for u in immediate_upstream_cells(cell)])
+	hash((strip(cell.code), upstream_hashes))
+end
+
+"Record that this cell's displayed output was produced by its current code and upstream results."
+function record_execution_key!(cell::Cell)
+	cell.result_hash = compute_result_hash(cell)
+	cell.execution_key_produced = current_execution_key(cell)
+end
+
+"""
+Clear stale marks that can be *proven* unnecessary: the cell's current execution key matches the key that produced its output, and nothing upstream is stale. Iterates in topological order so that un-staling propagates downstream in one sweep. Cells marked `always_stale` are never cleared. Returns the cleared cells.
+"""
+function verify_stale!(notebook::Notebook)::Vector{Cell}
+	cleared = Cell[]
+	for cell in collect(notebook._cached_topological_order)
+		cell.stale || continue
+		is_always_stale(cell) && continue
+		any(u -> u.stale, immediate_upstream_cells(cell)) && continue
+		if current_execution_key(cell) == cell.execution_key_produced
+			cell.stale = false
+			push!(cleared, cell)
+		end
+	end
+	cleared
 end
 
 """

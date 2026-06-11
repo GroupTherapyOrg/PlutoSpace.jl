@@ -71,6 +71,7 @@ const DEFAULT_CELL_METADATA = {
     disabled: false,
     show_logs: true,
     skip_as_script: false,
+    always_stale: false,
 }
 
 // from our friends at https://stackoverflow.com/a/2117523
@@ -141,7 +142,8 @@ const first_true_key = (obj) => {
  * @type {{
  *    disabled: boolean,
  *    show_logs: boolean,
- *    skip_as_script: boolean
+ *    skip_as_script: boolean,
+ *    always_stale: boolean
  *  }}
  *
  * @typedef CellInputData

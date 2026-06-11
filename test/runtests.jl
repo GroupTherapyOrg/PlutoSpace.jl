@@ -63,6 +63,7 @@ verify_no_running_processes()
 # tests that don't start new processes:
 @timeit_include("ReloadFromFile.jl")
 @timeit_include("LazyMode.jl")
+@timeit_include("ExecutionKeys.jl")
 @timeit_include("packages/PkgCompat.jl")
 @timeit_include("packages/PkgUtils.jl")
 @timeit_include("MethodSignatures.jl")
