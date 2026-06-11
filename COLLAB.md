@@ -19,9 +19,12 @@ That's the whole setup. `on_code_change="lazy"` changes three things:
    on disk (lazy mode watches it automatically), the edited cells get the familiar yellow
    *modified* marker in the browser — the exact same look as typing in a cell yourself —
    within about a second, and **nothing executes**. A "N cells are stale (RUN)" notice
-   appears; click it (or run any cell) when *you* decide. Exactly like normal Pluto, running
-   a cell re-runs its dependents reactively; and pull semantics make sure any stale or cold
-   cells it depends on run first, so nothing ever computes against outdated inputs.
+   appears; click it (or run any cell) when *you* decide. Exactly like normal Pluto: running
+   a cell re-runs its dependents reactively, and *other* cells' pending changes are never
+   dragged in — they apply only when their own cells run (one by one, or all at once with
+   Ctrl+S). The one exception is workspace-cold cells restored from cache after a restart:
+   those are pulled in automatically when needed, because their values don't exist in the
+   kernel yet.
 
 2. **Outputs survive restarts.** After every run, outputs and execution keys are written to
    `<notebook>.jl.pluto-cache.toml` — a plain-TOML, deletable cache sidecar. Reopening the

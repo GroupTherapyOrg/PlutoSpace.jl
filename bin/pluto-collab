@@ -16,6 +16,9 @@
 #   pluto-collab status <notebook.jl> [--json]    per-cell state: stale / cold / errored / output
 #   pluto-collab run <notebook.jl> --stale        run all stale cells (and their dependents)
 #   pluto-collab run <notebook.jl> --cell <id> [--cell <id>…]   run specific cells
+#       (other cells' pending changes are NOT pulled in — like vanilla Pluto, a run uses
+#        the workspace values from each ancestor's last run; cold ancestors restored from
+#        cache are the exception: they must run once to exist in the kernel)
 #   pluto-collab interrupt <notebook.jl>          interrupt a running notebook
 #
 # Cell outputs are also continuously written to <notebook.jl>.pluto-cache.toml — plain TOML,
@@ -154,7 +157,7 @@ case "$cmd" in
         ;;
 
     help|--help|-h|*)
-        sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
         [ "$cmd" = help ] || [ "$cmd" = --help ] || [ "$cmd" = -h ] || exit 2
         ;;
 esac

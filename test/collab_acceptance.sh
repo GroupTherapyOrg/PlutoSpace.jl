@@ -109,11 +109,15 @@ rc=$?
 check "run with an erroring cell exits 1 (got $rc)" test "$rc" = 1
 check "error message visible in status" sh -c "'$CLI' status '$NB' | grep -qi 'boom'"
 
-echo "--- 6. fix the error, run a SINGLE cell by id, ancestors pulled in"
+echo "--- 6. fix the error; pending changes do NOT propagate through other cells' runs"
 sed 's/b = error("boom")/b = a + 5/' "$NB" > "$NB.tmp" && mv "$NB.tmp" "$NB"
 sleep 3
-check "run --cell c exits 0 (pulls stale ancestor b)" "$CLI" run "$NB" --cell 33333333-3333-3333-3333-333333333333
-check "c recomputed through pulled ancestors (c = 70)" sh -c "'$CLI' status '$NB' | grep -q 'output: 70'"
+"$CLI" run "$NB" --cell 33333333-3333-3333-3333-333333333333 >/dev/null 2>&1
+rc=$?
+check "running c alone does not pull in b's pending fix (still errors, got $rc)" test "$rc" = 1
+check "b's fix is still pending (stale)" sh -c "'$CLI' status '$NB' | grep -q '1 stale'"
+check "run --stale applies the fix (b runs, c follows reactively)" "$CLI" run "$NB" --stale
+check "c recomputed (c = 70)" sh -c "'$CLI' status '$NB' | grep -q 'output: 70'"
 
 echo "--- 7. restart: outputs survive via the sidecar, nothing re-runs"
 kill "$SERVER_PID" 2>/dev/null; SERVER_PID=""

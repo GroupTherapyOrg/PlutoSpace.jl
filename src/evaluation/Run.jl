@@ -463,12 +463,12 @@ function verify_stale!(notebook::Notebook)::Vector{Cell}
 end
 
 """
-Expand a set of cells with all of their *stale or workspace-cold ancestors*: cells that are upstream (via the dependency graph) and either marked `stale` (their code changed without running) or `workspace_cold` (their output was restored from cache, but their variables don't exist in this process).
+Expand a set of cells with all of their *workspace-cold ancestors*: upstream cells whose outputs were restored from cache but whose variables don't exist in this process — without running them first, the requested cells could not run at all.
 
-Used in lazy mode for pull-based runs: when you run a cell whose inputs are stale or cold, those inputs run too, so your cell never computes against outdated or missing values. The reactive run itself then takes care of everything downstream.
+Stale ancestors are deliberately NOT pulled in: just like vanilla Pluto, running a cell does not propagate other cells' pending changes — it computes against the workspace values from their last run. Pending changes apply only when their own cells run (individually, or all at once with Ctrl+S / `run --stale`).
 """
 function expand_stale_ancestors(notebook::Notebook, cells::Vector{Cell})::Vector{Cell}
-	needs_pull(c::Cell) = c.stale || c.workspace_cold
+	needs_pull(c::Cell) = c.workspace_cold
 	seen = Set{Cell}(cells)
 	queue = copy(cells)
 	stale_ancestors = Cell[]

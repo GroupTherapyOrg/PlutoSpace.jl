@@ -1,85 +1,94 @@
-cell_order = ["0fdad812-65af-11f1-9244-e5793823958b", "14b53018-660b-4a50-8444-ae036e98f3ef", "a1b2c3d4-0000-4000-8000-123456789abc", "b2c3d4e5-0000-4000-8000-abcdef012345", "c1000001-0000-4000-8000-000000000001", "c1000002-0000-4000-8000-000000000002", "c1000003-0000-4000-8000-000000000003", "c1000004-0000-4000-8000-000000000004", "c1000005-0000-4000-8000-000000000005"]
+cell_order = ["0fdad812-65af-11f1-9244-e5793823958b", "14b53018-660b-4a50-8444-ae036e98f3ef", "a1b2c3d4-0000-4000-8000-123456789abc", "b2c3d4e5-0000-4000-8000-abcdef012345", "c1000001-0000-4000-8000-000000000001", "c1000002-0000-4000-8000-000000000002", "c1000003-0000-4000-8000-000000000003", "c1000004-0000-4000-8000-000000000004", "c1000005-0000-4000-8000-000000000005", "d4000001-0000-4000-8000-00000000000d"]
 format = 1
 julia_version = "v1.12.4"
 pluto_version = "v1.0.2"
 
 [cells.0fdad812-65af-11f1-9244-e5793823958b]
 errored = false
-execution_key = "952728f0fd1260f9"
+execution_key = "6ea4bbbf63160a65"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozEwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Hairc0nq0Vt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheA=="
-result_hash = "60cf42f3380c2bf0"
-runtime_ns = 7959
-text_representation = "100"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5oTewcGVyc2lzdF9qc19zdGF0ZcKkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq4traMcrdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVloXg="
+result_hash = "269451f489a00f0"
+runtime_ns = 5834
+text_representation = "7"
 
 [cells.14b53018-660b-4a50-8444-ae036e98f3ef]
 errored = false
-execution_key = "24cf0a52836ff587"
+execution_key = "e51ba0d7ff20a2b"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairhfcBykt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheQ=="
-result_hash = "b6a829b7f4a170ea"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ojIxsHBlcnNpc3RfanNfc3RhdGXDpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKuLa2nty3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaF5"
+result_hash = "a5ba18572e40850e"
 runtime_ns = 0
-text_representation = "300"
+text_representation = "21"
 
 [cells.a1b2c3d4-0000-4000-8000-123456789abc]
 errored = false
-execution_key = "8937b35358242ffe"
+execution_key = "93ef442bf477ad73"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozQwMLBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairhfcD5Lt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheg=="
-result_hash = "572a5dd38c13e370"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ojI4sHBlcnNpc3RfanNfc3RhdGXDpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKuLa2roq3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaF6"
+result_hash = "be50ad9a08775c92"
 runtime_ns = 0
-text_representation = "400"
+text_representation = "28"
 
 [cells.b2c3d4e5-0000-4000-8000-abcdef012345]
 errored = false
-execution_key = "68aa4a8db9f9c50"
+execution_key = "c7e431b2b8730904"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52S8idGhlIGFuc3dlciB6IGlzIDQwMCAoYW5kIHggaXMgdW50b3VjaGVkOiAxMDApIrBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairhfcGpqt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWnbWVzc2FnZQ=="
-result_hash = "fb0da430c5038cc0"
-runtime_ns = 10958
-text_representation = "\"the answer z is 400 (and x is untouched: 100)\""
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52TMiQUdFTlQgV0FTIEhFUkU6IHo9MjgsIHg9NyDigJQgYnV0IG5vdGhpbmcgcmFuIHlldCKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq4tra+4LdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp21lc3NhZ2U="
+result_hash = "1aaa8efdedca7356"
+runtime_ns = 1083
+text_representation = "\"AGENT WAS HERE: z=28, x=7 — but nothing ran yet\""
 
 [cells.c1000001-0000-4000-8000-000000000001]
 errored = false
 execution_key = "1d3c6f23631b216d"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMzNLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Hairdm27Qtt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjE="
-result_hash = "f74fa2d08677aac5"
-runtime_ns = 8002087500
-text_representation = "334"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozE0ObBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairirJDTKt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjE="
+result_hash = "cfafbb751cb5f3d6"
+runtime_ns = 8002071334
+text_representation = "149"
 
 [cells.c1000002-0000-4000-8000-000000000002]
 errored = false
 execution_key = "f0415a445086a6c4"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pjQ1MS4xOLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairfdPf65t2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjI="
-result_hash = "ace10fd11e6e6370"
-runtime_ns = 6002225542
-text_representation = "451.18"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pTQ1OS4zsHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKuKyqhxq3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaJyMg=="
+result_hash = "a02ffa6bdaedddb7"
+runtime_ns = 6002095750
+text_representation = "459.3"
 
 [cells.c1000003-0000-4000-8000-000000000003]
 errored = false
-execution_key = "fec006a62a6e1d78"
+execution_key = "9708e11df2ae45de"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pTEwNjY4sHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKt9Qfhte3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaV0b3RhbA=="
-result_hash = "401cd42bfb90498a"
-runtime_ns = 28750
-text_representation = "10668"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozM0N7BwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Hairi2ts4pt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWldG90YWw="
+result_hash = "8bc0340c15e0214d"
+runtime_ns = 1375
+text_representation = "347"
 
 [cells.c1000004-0000-4000-8000-000000000004]
 errored = false
-execution_key = "d7c3db716e501048"
+execution_key = "84c69aa593f8dd2a"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5qiJwb3NpdGl2ZSKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq33T5c7rdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3ZlcmRpY3Q="
-result_hash = "7e11991abc3bbc34"
-runtime_ns = 0
-text_representation = "\"positive\""
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5riJQT1NJVElWRSDinJQisHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKuKytBBm3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZad2ZXJkaWN0"
+result_hash = "6073e0fa08288cb5"
+runtime_ns = 7500
+text_representation = "\"POSITIVE ✔\""
 
 [cells.c1000005-0000-4000-8000-000000000005]
 errored = false
-execution_key = "2cf549d89cc20e0c"
+execution_key = "827e5c54cd916bd7"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52TAiVE9UQUxTOiAxMDY2OCAvLyBSMiBDQU1FIE9VVCBQT1NJVElWRSAoNDUxLjE4KSKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq33T50jrdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3N1bW1hcnk="
-result_hash = "4f46121b9987941e"
-runtime_ns = 26958
-text_representation = "\"TOTALS: 10668 // R2 CAME OUT POSITIVE (451.18)\""
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52TEiVE9UQUxTOiAzNDcgLy8gUjIgQ0FNRSBPVVQgUE9TSVRJVkUg4pyUICg0NTkuMykisHBlcnNpc3RfanNfc3RhdGXDpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKuLa23r63aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZadzdW1tYXJ5"
+result_hash = "6a117078b27b0263"
+runtime_ns = 10417
+text_representation = "\"TOTALS: 347 // R2 CAME OUT POSITIVE ✔ (459.3)\""
+
+[cells.d4000001-0000-4000-8000-00000000000d]
+errored = false
+execution_key = "10f8fd6409cbfa2"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52VwieCBpcyBub3cgNyDCtyB0b3RhbD0zNDcgwrcgbWVzc2FnZSBzYXlzOiBBR0VOVCBXQVMgSEVSRTogej0yOCwgeD03IOKAlCBidXQgbm90aGluZyByYW4geWV0IrBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Hairi2t9zPt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWmcmVwb3J0"
+result_hash = "d40a720c2b724ab6"
+runtime_ns = 42750
+text_representation = "\"x is now 7 · total=347 · message says: AGENT WAS HERE: z=28, x=7 — but nothing ran yet\""

@@ -51,13 +51,17 @@ using Pluto.WorkspaceManager: poll
         @test notebook.cells[1].code == "a = 2"
     end
 
-    @testset "pull semantics: running a cell runs its stale ancestors" begin
-        # request only cell d — expansion must pull in its stale ancestor a; b and c re-run as part of the reactive closure
+    @testset "pending changes do not propagate through other cells' runs" begin
+        # a was edited (a = 2) but never run. Running d does NOT pull a's pending change in: d computes against the workspace value from a's last run — exactly like running a cell below someone's unsaved edit in vanilla Pluto.
         to_run = Pluto.expand_stale_ancestors(notebook, Cell[notebook.cells[4]])
-        @test Set(to_run) == Set([notebook.cells[1], notebook.cells[4]])
-
+        @test to_run == Cell[notebook.cells[4]]
         update_run!(🍭, notebook, to_run)
+        @test notebook.cells[4].output.body == "13" # still computed from a = 1
+        @test notebook.cells[1].stale               # a's pending change is still pending
+        @test notebook.cells[1].output.body == "1"
 
+        # the Ctrl+S equivalent: run all stale cells — now the change applies everywhere
+        update_run!(🍭, notebook, filter(c -> c.stale, notebook.cells))
         @test notebook.cells[1].output.body == "2"
         @test notebook.cells[2].output.body == "3"
         @test notebook.cells[3].output.body == "12"
