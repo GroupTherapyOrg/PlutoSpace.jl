@@ -2003,8 +2003,9 @@ pluto-editor:not(.___) pluto-cell.errored > pluto-trafficlight {
     background-clip: padding-box;
 }
 
-/* stale wins over errored: knowing that the output is outdated is more actionable than the old error */
-pluto-editor:not(.___) pluto-cell.stale > pluto-trafficlight {
+/* stale wins over errored (knowing the output is outdated is more actionable than the old error),
+   but NOT over queued/running — while a stale cell executes, the normal activity visuals must show */
+pluto-editor:not(.___) pluto-cell.stale:not(.running):not(.queued) > pluto-trafficlight {
     background: var(--stale-cell-color);
     border-left-color: var(--stale-cell-color);
     background-clip: padding-box;

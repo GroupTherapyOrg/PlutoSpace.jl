@@ -1,0 +1,85 @@
+cell_order = ["0fdad812-65af-11f1-9244-e5793823958b", "14b53018-660b-4a50-8444-ae036e98f3ef", "a1b2c3d4-0000-4000-8000-123456789abc", "b2c3d4e5-0000-4000-8000-abcdef012345", "c1000001-0000-4000-8000-000000000001", "c1000002-0000-4000-8000-000000000002", "c1000003-0000-4000-8000-000000000003", "c1000004-0000-4000-8000-000000000004", "c1000005-0000-4000-8000-000000000005"]
+format = 1
+julia_version = "v1.12.4"
+pluto_version = "v1.0.2"
+
+[cells.0fdad812-65af-11f1-9244-e5793823958b]
+errored = false
+execution_key = "952728f0fd1260f9"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozEwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Hairc0nq0Vt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheA=="
+result_hash = "60cf42f3380c2bf0"
+runtime_ns = 7959
+text_representation = "100"
+
+[cells.14b53018-660b-4a50-8444-ae036e98f3ef]
+errored = false
+execution_key = "24cf0a52836ff587"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairdGj2GJt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheQ=="
+result_hash = "b6a829b7f4a170ea"
+runtime_ns = 6250
+text_representation = "300"
+
+[cells.a1b2c3d4-0000-4000-8000-123456789abc]
+errored = false
+execution_key = "8937b35358242ffe"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozQwMLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairdGj3f3t2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheg=="
+result_hash = "572a5dd38c13e370"
+runtime_ns = 42
+text_representation = "400"
+
+[cells.b2c3d4e5-0000-4000-8000-abcdef012345]
+errored = false
+execution_key = "68aa4a8db9f9c50"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52S8idGhlIGFuc3dlciB6IGlzIDQwMCAoYW5kIHggaXMgdW50b3VjaGVkOiAxMDApIrBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HairdGmQNtt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWnbWVzc2FnZQ=="
+result_hash = "fb0da430c5038cc0"
+runtime_ns = 19292
+text_representation = "\"the answer z is 400 (and x is untouched: 100)\""
+
+[cells.c1000001-0000-4000-8000-000000000001]
+errored = false
+execution_key = "1d3c6f23631b216d"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMzNLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Hairdm27Qtt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjE="
+result_hash = "f74fa2d08677aac5"
+runtime_ns = 8002087500
+text_representation = "334"
+
+[cells.c1000002-0000-4000-8000-000000000002]
+errored = false
+execution_key = "47f686590d18a739"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pTQ1My42sHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqKt4luQMC3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaJyMg=="
+result_hash = "51029c4be295535a"
+runtime_ns = 6002153500
+text_representation = "453.6"
+
+[cells.c1000003-0000-4000-8000-000000000003]
+errored = false
+execution_key = "c04b4647ae472b97"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozc2OLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Haird9Acnit2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWldG90YWw="
+result_hash = "7661b134258c4cd7"
+runtime_ns = 11000
+text_representation = "768"
+
+[cells.c1000004-0000-4000-8000-000000000004]
+errored = false
+execution_key = "259fe4c35647f0c0"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5qiJwb3NpdGl2ZSKwcGVyc2lzdF9qc19zdGF0ZcKkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq3iW5uGrdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3ZlcmRpY3Q="
+result_hash = "7e11991abc3bbc34"
+runtime_ns = 0
+text_representation = "\"positive\""
+
+[cells.c1000005-0000-4000-8000-000000000005]
+errored = false
+execution_key = "21c290b21e8c0222"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52S0iVE9UQUxTOiA3NjggLy8gUjIgQ0FNRSBPVVQgUE9TSVRJVkUgKDQ1My42KSKwcGVyc2lzdF9qc19zdGF0ZcKkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oq3iW6CKLdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3N1bW1hcnk="
+result_hash = "e8942c9813448b65"
+runtime_ns = 12917
+text_representation = "\"TOTALS: 768 // R2 CAME OUT POSITIVE (453.6)\""
