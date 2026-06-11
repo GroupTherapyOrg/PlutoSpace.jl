@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+# pluto-collab — talk to a LIVE Pluto server from any terminal.
+#
+# Lets external tools (you, a coding agent, a script) read notebook state and run cells
+# in the same live session that the browser is connected to. Both sides see each other's
+# runs in real time. Edit the notebook .jl file directly to change code — in lazy mode
+# (Pluto.run(on_code_change="lazy")) edits mark cells stale instead of running them;
+# this tool is how you run them.
+#
+# Dependencies: curl, sed. Discovery via the connection files that every running Pluto
+# server writes to $XDG_STATE_HOME/pluto/servers/<port>.json (like Jupyter kernels).
+#
+# Commands:
+#   pluto-collab servers                          list live Pluto servers
+#   pluto-collab notebooks                        list open notebooks on all live servers
+#   pluto-collab status <notebook.jl> [--json]    per-cell state: stale / cold / errored / output
+#   pluto-collab run <notebook.jl> --stale        run all stale cells (and their dependents)
+#   pluto-collab run <notebook.jl> --cell <id> [--cell <id>…]   run specific cells
+#   pluto-collab interrupt <notebook.jl>          interrupt a running notebook
+#
+# Cell outputs are also continuously written to <notebook.jl>.pluto-cache.toml — plain TOML,
+# readable without this tool.
+#
+# Exit codes: 0 ok · 1 cells errored · 2 no live server / notebook not open / bad usage
+
+set -u
+
+REGISTRY_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/pluto/servers"
+
+err() { echo "pluto-collab: $*" >&2; }
+
+json_field() { # json_field <key> <file-or-string-via-stdin>  — flat JSON only
+    sed -n "s/.*\"$1\": *\"\{0,1\}\([^\",}]*\)\"\{0,1\}.*/\1/p"
+}
+
+abs_path() {
+    if command -v realpath >/dev/null 2>&1; then
+        realpath "$1" 2>/dev/null
+    else
+        ( cd "$(dirname "$1")" 2>/dev/null && printf '%s/%s\n' "$(pwd)" "$(basename "$1")" )
+    fi
+}
+
+# iterate live servers; prints "port<TAB>host<TAB>secret" per line
+live_servers() {
+    [ -d "$REGISTRY_DIR" ] || return 0
+    for f in "$REGISTRY_DIR"/*.json; do
+        [ -e "$f" ] || continue
+        pid=$(json_field pid <"$f")
+        port=$(json_field port <"$f")
+        host=$(json_field host <"$f")
+        secret=$(json_field secret <"$f")
+        [ -n "$pid" ] && [ -n "$port" ] || continue
+        if kill -0 "$pid" 2>/dev/null; then
+            case "$host" in ""|0.0.0.0|'*') host=127.0.0.1 ;; esac
+            printf '%s\t%s\t%s\n' "$port" "$host" "$secret"
+        else
+            rm -f "$f" 2>/dev/null # stale registry entry
+        fi
+    done
+}
+
+# find the server that has this notebook open; prints "base_url<TAB>secret".
+# The server does the path matching (it compares realpaths), so symlinked
+# locations like macOS /tmp → /private/tmp are handled correctly.
+find_server_for() {
+    nb_path=$(abs_path "$1")
+    [ -n "$nb_path" ] || { err "no such file: $1"; return 2; }
+    while IFS="$(printf '\t')" read -r port host secret; do
+        base="http://$host:$port"
+        if curl -sf --connect-timeout 3 -G -o /dev/null \
+            --data-urlencode "path=$nb_path" -d "format=text" -d "secret=$secret" \
+            "$base/api/v1/notebook" 2>/dev/null; then
+            printf '%s\t%s\n' "$base" "$secret"
+            return 0
+        fi
+    done <<EOF
+$(live_servers)
+EOF
+    return 1
+}
+
+require_server() {
+    found=$(find_server_for "$1") || {
+        err "no live Pluto server has '$1' open."
+        err "start one with:  julia -e 'import Pluto; Pluto.run(on_code_change=\"lazy\", notebook=\"$1\")'"
+        exit 2
+    }
+    BASE=${found%%	*}
+    SECRET=${found##*	}
+    NB_PATH=$(abs_path "$1")
+}
+
+cmd=${1:-help}
+case "$cmd" in
+    servers)
+        live_servers | while IFS="$(printf '\t')" read -r port host secret; do
+            echo "http://$host:$port"
+        done
+        ;;
+
+    notebooks)
+        live_servers | while IFS="$(printf '\t')" read -r port host secret; do
+            echo "# http://$host:$port"
+            curl -sf --connect-timeout 3 "http://$host:$port/api/v1/notebooks?format=text&secret=$secret" 2>/dev/null || true
+        done
+        ;;
+
+    status)
+        [ $# -ge 2 ] || { err "usage: pluto-collab status <notebook.jl> [--json]"; exit 2; }
+        require_server "$2"
+        fmt=text; [ "${3:-}" = "--json" ] && fmt=json
+        curl -sf -G --data-urlencode "path=$NB_PATH" -d "format=$fmt" -d "secret=$SECRET" \
+            "$BASE/api/v1/notebook" || { err "request failed"; exit 2; }
+        ;;
+
+    run)
+        [ $# -ge 3 ] || { err "usage: pluto-collab run <notebook.jl> --stale | --cell <id>… [--json]"; exit 2; }
+        require_server "$2"
+        shift 2
+        fmt=text; mode=""; cells=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --stale) mode=stale ;;
+                --cell) shift; cells="${cells:+$cells,}$1" ;;
+                --json) fmt=json ;;
+                *) err "unknown argument: $1"; exit 2 ;;
+            esac
+            shift
+        done
+        if [ "$mode" = "stale" ]; then
+            query="stale=true"
+        elif [ -n "$cells" ]; then
+            query="cells=$cells"
+        else
+            err "specify --stale or --cell <id>"; exit 2
+        fi
+        response_headers=$(mktemp)
+        curl -sf -X POST -G -D "$response_headers" \
+            --data-urlencode "path=$NB_PATH" -d "$query" -d "format=$fmt" -d "secret=$SECRET" \
+            "$BASE/api/v1/notebook/run" \
+            || { rm -f "$response_headers"; err "request failed"; exit 2; }
+        errored=$(sed -n 's/^[Xx]-[Pp]luto-[Cc]ells-[Ee]rrored: *\([0-9]*\).*/\1/p' "$response_headers")
+        rm -f "$response_headers"
+        [ "${errored:-0}" -gt 0 ] && exit 1
+        exit 0
+        ;;
+
+    interrupt)
+        [ $# -ge 2 ] || { err "usage: pluto-collab interrupt <notebook.jl>"; exit 2; }
+        require_server "$2"
+        curl -sf -X POST -G --data-urlencode "path=$NB_PATH" -d "format=text" -d "secret=$SECRET" \
+            "$BASE/api/v1/notebook/interrupt" || { err "request failed"; exit 2; }
+        ;;
+
+    help|--help|-h|*)
+        sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'
+        [ "$cmd" = help ] || [ "$cmd" = --help ] || [ "$cmd" = -h ] || exit 2
+        ;;
+esac

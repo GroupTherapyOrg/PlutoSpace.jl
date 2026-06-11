@@ -148,10 +148,14 @@ function run!(session::ServerSession)
 
     local port, serversocket = port_serversocket(hostIP, favourite_port, port_hint)
 
+    # connection file: lets external tools (e.g. coding agents) discover this server's port and secret
+    write_collab_registry_file(session, port)
+
     on_shutdown() = @sync begin
         # Triggered by HTTP.jl
         @info("\nClosing Pluto... Restart Julia for a fresh session. \n\nHave a nice day! 🎈\n\n")
-        # TODO: put do_work tokens back 
+        remove_collab_registry_file(port)
+        # TODO: put do_work tokens back
         @async swallow_exception(() -> close(serversocket), Base.IOError)
         for client in values(session.connected_clients)
             @async swallow_exception(() -> close(client.stream), Base.IOError)

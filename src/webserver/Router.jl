@@ -129,6 +129,9 @@ function http_router_for(session::ServerSession)
 
     HTTP.register!(router, "GET", "/notebooklist", serve_notebooklist)
 
+    # the collab API: lets external tools (coding agents, scripts) read notebook state and run cells over plain HTTP
+    register_collab_api!(router, session)
+
     
     function serve_sample(request::HTTP.Request)
         uri = HTTP.URI(request.target)
