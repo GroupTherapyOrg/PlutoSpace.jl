@@ -107,7 +107,7 @@ const on_jump = (hasBarrier, pluto_actions, cell_id) => () => {
  * */
 export const Cell = ({
     cell_input: { cell_id, code, code_folded, metadata },
-    cell_result: { queued, running, runtime, errored, output, logs, published_object_keys, depends_on_disabled_cells, depends_on_skipped_cells },
+    cell_result: { queued, running, runtime, errored, output, logs, published_object_keys, depends_on_disabled_cells, depends_on_skipped_cells, stale },
     cell_dependencies,
     cell_input_local,
     notebook_id,
@@ -312,6 +312,7 @@ export const Cell = ({
                 running_disabled,
                 depends_on_disabled_cells,
                 depends_on_skipped_cells,
+                stale,
                 show_input,
                 shrunk: Object.values(logs).length > 0,
                 hooked_up: output?.has_pluto_hook_features ?? false,

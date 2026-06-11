@@ -1,6 +1,6 @@
 module SessionActions
 
-import ..Pluto: Pluto, Status, ServerSession, Notebook, Cell, emptynotebook, tamepath, new_notebooks_directory, without_pluto_file_extension, numbered_until_new, cutename, readwrite, update_save_run!, update_nbpkg_cache!, update_from_file, wait_until_file_unchanged, putnotebookupdates!, putplutoupdates!, load_notebook, clientupdate_notebook_list, WorkspaceManager, try_event_call, NewNotebookEvent, OpenNotebookEvent, ShutdownNotebookEvent, @asynclog, ProcessStatus, maybe_convert_path_to_wsl, move_notebook!, Throttled
+import ..Pluto: Pluto, Status, ServerSession, Notebook, Cell, emptynotebook, tamepath, new_notebooks_directory, without_pluto_file_extension, numbered_until_new, cutename, readwrite, update_save_run!, update_nbpkg_cache!, update_from_file, wait_until_file_unchanged, putnotebookupdates!, putplutoupdates!, load_notebook, clientupdate_notebook_list, WorkspaceManager, try_event_call, NewNotebookEvent, OpenNotebookEvent, ShutdownNotebookEvent, @asynclog, ProcessStatus, maybe_convert_path_to_wsl, move_notebook!, Throttled, is_lazy
 using FileWatching
 import ..Pluto.DownloadCool: download_cool
 import HTTP
@@ -152,7 +152,8 @@ function add(session::ServerSession, notebook::Notebook; run_async::Bool=true)
 
     in_session() = get(session.notebooks, notebook.notebook_id, nothing) === notebook
     
-    session.options.server.auto_reload_from_file && @asynclog try
+    # lazy mode implies watching the file: external edits are how other tools (e.g. coding agents) collaborate on the notebook, and in lazy mode they are safe — they only mark cells stale.
+    (session.options.server.auto_reload_from_file || is_lazy(session)) && @asynclog try
         while in_session()
             if !isfile(notebook.path)
                 # notebook file deleted... let's ignore this, changing the notebook will cause it to save again. Fine for now
@@ -183,10 +184,17 @@ function add(session::ServerSession, notebook::Notebook; run_async::Bool=true)
                 
                 # if current_time - notebook.last_save_time < 2.0
                     # @info "Notebook was saved by me very recently, not reloading from file."
+                # nothing if the file is temporarily unreadable (e.g. mid-rename) — treated as "changed"
+                disk_content_hash = try
+                    hash(read(notebook.path, String))
+                catch
+                    nothing
+                end
+
                 if modified_time == 0.0
                     # @warn "Failed to hot reload: file no longer exists."
-                elseif modified_time - notebook.last_save_time < session.options.server.auto_reload_from_file_cooldown
-                    # @info "Modified time is very close to my last save time, not reloading from file."
+                elseif disk_content_hash == notebook.last_saved_file_hash
+                    # The file contains exactly what we last wrote: this event is our own save, not an external change. (A content check instead of a time-based cooldown — a cooldown can swallow a real external edit that lands just after our save.)
                 else
                     update_from_file_throttled()
                 end

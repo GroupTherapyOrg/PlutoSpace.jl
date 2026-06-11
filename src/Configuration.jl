@@ -146,6 +146,7 @@ Note that Pluto is quickly evolving software, maintained by designers, educators
 end
 
 const RUN_NOTEBOOK_ON_LOAD_DEFAULT = true
+const ON_CODE_CHANGE_DEFAULT = "autorun"
 const WORKSPACE_USE_DISTRIBUTED_DEFAULT = true
 const WORKSPACE_USE_DISTRIBUTED_STDLIB_DEFAULT = nothing
 const LAZY_WORKSPACE_CREATION_DEFAULT = false
@@ -159,6 +160,7 @@ Options to change Pluto's evaluation behaviour during internal testing and by do
 These options are not intended to be changed during normal use.
 
 - `run_notebook_on_load::Bool = $RUN_NOTEBOOK_ON_LOAD_DEFAULT` When running a notebook (not in Safe mode), should all cells evaluate immediately? Warning: this is only for internal testing, and using it will lead to unexpected behaviour and hard-to-reproduce notebooks. It's not the Pluto way!
+- `on_code_change::String = "$ON_CODE_CHANGE_DEFAULT"` What happens when cell code changes without an explicit run request (e.g. the notebook file was edited externally)? `"autorun"` (default): the changed cells and their dependents run immediately, like classic Pluto. `"lazy"`: the changed cells and their dependents are only *marked stale* — nobody loses their running state, and you (or an external tool) decide when to run them.
 - `workspace_use_distributed::Bool = $WORKSPACE_USE_DISTRIBUTED_DEFAULT` Whether to start notebooks in a separate process. Setting this to `false` is only meant for very advanced users, many features will be broken or behave unexpectedly (inlcuding anything related to package loading or interrupts).
 - `workspace_use_distributed_stdlib::Bool? = $WORKSPACE_USE_DISTRIBUTED_STDLIB_DEFAULT` Should we use the Distributed stdlib to run processes, instead of the new Malt.jl runner? You can use `true` to get the old behaviour. `nothing` means: determine automatically (which is currently `false`).
 - `lazy_workspace_creation::Bool = $LAZY_WORKSPACE_CREATION_DEFAULT`
@@ -167,6 +169,7 @@ These options are not intended to be changed during normal use.
 """
 @option mutable struct EvaluationOptions
     run_notebook_on_load::Bool = RUN_NOTEBOOK_ON_LOAD_DEFAULT
+    on_code_change::String = ON_CODE_CHANGE_DEFAULT
     workspace_use_distributed::Bool = WORKSPACE_USE_DISTRIBUTED_DEFAULT
     workspace_use_distributed_stdlib::Union{Bool,Nothing} = WORKSPACE_USE_DISTRIBUTED_STDLIB_DEFAULT
     lazy_workspace_creation::Bool = LAZY_WORKSPACE_CREATION_DEFAULT
@@ -308,6 +311,7 @@ function from_flat_kwargs(;
         warn_about_untrusted_code::Bool = WARN_ABOUT_UNTRUSTED_CODE_DEFAULT,
 
         run_notebook_on_load::Bool = RUN_NOTEBOOK_ON_LOAD_DEFAULT,
+        on_code_change::String = ON_CODE_CHANGE_DEFAULT,
         workspace_use_distributed::Bool = WORKSPACE_USE_DISTRIBUTED_DEFAULT,
         workspace_use_distributed_stdlib::Union{Bool,Nothing} = WORKSPACE_USE_DISTRIBUTED_STDLIB_DEFAULT,
         lazy_workspace_creation::Bool = LAZY_WORKSPACE_CREATION_DEFAULT,
@@ -360,6 +364,7 @@ function from_flat_kwargs(;
     )
     evaluation = EvaluationOptions(;
         run_notebook_on_load,
+        on_code_change,
         workspace_use_distributed,
         workspace_use_distributed_stdlib,
         lazy_workspace_creation,

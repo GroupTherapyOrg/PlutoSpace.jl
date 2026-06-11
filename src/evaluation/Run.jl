@@ -340,6 +340,8 @@ function set_output!(cell::Cell, run, expr_cache::ExprAnalysisCache; persist_js_
 	cell.runtime = run.runtime
 	cell.errored = run.errored
 	cell.running = cell.queued = false
+	# the output now reflects the current code
+	cell.stale = false
 end
 
 function clear_output!(cell::Cell)
@@ -365,10 +367,54 @@ function relay_reactivity_error!(cell::Cell, error::Exception)
 	cell.published_objects = Dict{String,Any}()
 	cell.runtime = nothing
 	cell.errored = true
+	# the displayed error reflects the current code
+	cell.stale = false
 end
 
 will_run_code(notebook::Notebook) = notebook.process_status ∈ (ProcessStatus.ready, ProcessStatus.starting)
 will_run_pkg(notebook::Notebook) = notebook.process_status !== ProcessStatus.waiting_for_permission
+
+"Is this session in lazy mode? In lazy mode, code changes that were not explicitly requested to run (e.g. external file edits) only mark cells as stale, instead of running them."
+is_lazy(session::ServerSession) = session.options.evaluation.on_code_change == "lazy"
+
+"""
+Mark `roots` and all cells that (indirectly) depend on them as `stale`, without running anything. Returns the marked cells.
+
+This is the lazy-mode counterpart of a reactive run: the same topological closure that a reactive run *would* execute is instead flagged, so that clients (and external tools reading the notebook state) can see exactly which outputs no longer match the current code.
+"""
+function mark_stale!(notebook::Notebook, topology::NotebookTopology, roots::Vector{Cell})::Vector{Cell}
+	order = topological_order_cached(topology, roots)
+	marked = Cell[]
+	for cell in union(order.runnable, keys(order.errable))
+		cell.stale = true
+		push!(marked, cell)
+	end
+	marked
+end
+
+"""
+Expand a set of cells with all of their *stale ancestors*: cells that are upstream (via the dependency graph) and marked `stale`.
+
+Used in lazy mode for pull-based runs: when you run a cell whose inputs are stale, the stale inputs run too, so your cell never computes against outdated values. The reactive run itself then takes care of everything downstream.
+"""
+function expand_stale_ancestors(notebook::Notebook, cells::Vector{Cell})::Vector{Cell}
+	seen = Set{Cell}(cells)
+	queue = copy(cells)
+	stale_ancestors = Cell[]
+	while !isempty(queue)
+		c = pop!(queue)
+		for upstream_cells in values(c.cell_dependencies.upstream_cells_map)
+			for u in upstream_cells
+				if u isa Cell && u ∉ seen
+					push!(seen, u)
+					push!(queue, u)
+					u.stale && push!(stale_ancestors, u)
+				end
+			end
+		end
+	end
+	isempty(stale_ancestors) ? cells : Cell[stale_ancestors..., cells...]
+end
 
 
 "Do all the things!"
@@ -382,6 +428,7 @@ function update_save_run!(
 	clear_not_prerenderable_cells::Bool=false, 
 	auto_solve_multiple_defs::Bool=false,
 	on_auto_solve_multiple_defs::Function=identity,
+	external_trigger::Bool=false,
 	kwargs...
 )
 	old = notebook.topology
@@ -407,6 +454,15 @@ function update_save_run!(
 
 	update_dependency_cache!(notebook)
 	save && save_notebook(session, notebook)
+
+	# Lazy mode: a code change that was not explicitly requested to run (e.g. the file was edited externally by another tool) only marks the affected cells as stale. Nothing executes until someone asks.
+	# Exception: if cells were *removed*, we fall through to a normal reactive run — the run machinery is what deletes their variables from the workspace, and skipping it would leave ghost variables behind.
+	if external_trigger && is_lazy(session) && isempty(setdiff(all_cells(old), all_cells(new)))
+		marked = mark_stale!(notebook, new, cells)
+		@debug "Lazy mode: marked cells stale instead of running" length(marked)
+		send_notebook_changes!(ClientRequest(; session, notebook))
+		return nothing
+	end
 
 	# _assume `prerender_text == false` if you want to skip some details_
 	to_run_online = cells
@@ -638,7 +694,7 @@ function update_from_file(session::ServerSession, notebook::Notebook; kwargs...)
 	end
 
 	if something_changed
-		update_save_run!(session, notebook, Cell[notebook.cells_dict[c] for c in union(added, changed)]; kwargs...) # this will also update nbpkg if needed
+		update_save_run!(session, notebook, Cell[notebook.cells_dict[c] for c in union(added, changed)]; external_trigger=true, kwargs...) # this will also update nbpkg if needed
 	end
 
 	return true

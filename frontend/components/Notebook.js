@@ -47,7 +47,7 @@ const CellMemo = ({
     inspecting_hidden_code,
 }) => {
     const { body, last_run_timestamp, mime, persist_js_state, rootassignee } = cell_result?.output || {}
-    const { queued, running, runtime, errored, depends_on_disabled_cells, logs, depends_on_skipped_cells } = cell_result || {}
+    const { queued, running, runtime, errored, depends_on_disabled_cells, logs, depends_on_skipped_cells, stale } = cell_result || {}
     const { cell_id, code, code_folded, metadata } = cell_input || {}
     return useMemo(() => {
         return html`
@@ -77,6 +77,7 @@ const CellMemo = ({
         ...Object.values(metadata),
         depends_on_disabled_cells,
         depends_on_skipped_cells,
+        stale,
         queued,
         running,
         runtime,
@@ -208,6 +209,7 @@ export const Notebook = ({
                                 queued: true,
                                 running: false,
                                 errored: false,
+                                stale: false,
                                 runtime: null,
                                 output: null,
                                 logs: [],

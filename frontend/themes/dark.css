@@ -23,6 +23,7 @@
         --error-cell-color: rgba(var(--error-color), 0.6);
         --bright-error-cell-color: rgba(var(--error-color), 0.9);
         --light-error-cell-color: rgba(var(--error-color), 0);
+        --stale-cell-color: rgba(230, 150, 40, 0.8);
 
         /*Export styling*/
         --export-bg-color: hsl(225deg 17% 18%);

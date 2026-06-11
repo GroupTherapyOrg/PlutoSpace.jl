@@ -149,9 +149,11 @@ function save_notebook(notebook::Notebook, path::String)
     # @warn "Saving to file!!" exception=(ErrorException(""), backtrace())
     notebook.last_save_time = time()
     Status.report_business!(notebook.status_tree, :saving) do
-        write_buffered(path) do io
-            save_notebook(io, notebook)
+        file_content = sprint(io -> save_notebook(io, notebook))
+        if path == notebook.path
+            notebook.last_saved_file_hash = hash(file_content)
         end
+        write(path, file_content)
     end
 end
 

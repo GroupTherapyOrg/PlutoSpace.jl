@@ -2003,6 +2003,13 @@ pluto-editor:not(.___) pluto-cell.errored > pluto-trafficlight {
     background-clip: padding-box;
 }
 
+/* stale wins over errored: knowing that the output is outdated is more actionable than the old error */
+pluto-editor:not(.___) pluto-cell.stale > pluto-trafficlight {
+    background: var(--stale-cell-color);
+    border-left-color: var(--stale-cell-color);
+    background-clip: padding-box;
+}
+
 pluto-editor:not(.___) pluto-cell.queued > pluto-trafficlight::after {
     background: repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0) 8px, var(--normal-cell-color) 8px, var(--normal-cell-color) 16px);
     background-clip: padding-box;
@@ -3577,7 +3584,8 @@ footer #info {
 
 /* UNDO DELETED CELL */
 
-nav#undo_delete {
+nav#undo_delete,
+nav#run_stale_cells {
     z-index: 2000;
     display: block;
     position: fixed;
@@ -3598,11 +3606,17 @@ nav#undo_delete {
         0.05s linear opacity;
 }
 
-nav#undo_delete.hidden {
+nav#undo_delete.hidden,
+nav#run_stale_cells.hidden {
     margin-bottom: 0px;
     box-shadow: 00px 00px 10px -5px var(--undo-delete-box-shadow-color);
     opacity: 0;
     pointer-events: none;
+}
+
+/* both navs share the bottom-left corner; when the stale notice is up, the undo notice steps aside */
+nav#run_stale_cells:not(.hidden) ~ nav#undo_delete:not(.hidden) {
+    bottom: 2.6rem;
 }
 
 @keyframes shadow-fadeout {

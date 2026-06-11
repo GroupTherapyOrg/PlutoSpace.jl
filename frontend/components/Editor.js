@@ -15,6 +15,7 @@ import { BottomRightPanel } from "./BottomRightPanel.js"
 import { DropRuler, get_drop_index_for_paste } from "./DropRuler.js"
 import { SelectionArea } from "./SelectionArea.js"
 import { RecentlyDisabledInfo, UndoDelete } from "./UndoDelete.js"
+import { RunStaleCellsButton } from "./RunStaleCellsButton.js"
 import { SlideControls } from "./SlideControls.js"
 import { Scroller } from "./Scroller.js"
 import { ExportBanner } from "./ExportBanner.js"
@@ -188,6 +189,7 @@ const first_true_key = (obj) => {
  *  precedence_heuristic: number?,
  *  depends_on_disabled_cells: boolean,
  *  depends_on_skipped_cells: boolean,
+ *  stale: boolean,
  *  output: {
  *      body: string | Object,
  *      persist_js_state: boolean,
@@ -1845,9 +1847,13 @@ ${t("t_key_autosave_description")}`
                         notebook=${this.state.notebook}
                         sanitize_html=${status.sanitize_html}
                     />
-                    <${RecentlyDisabledInfo} 
+                    <${RecentlyDisabledInfo}
                         recently_auto_disabled_cells=${this.state.recently_auto_disabled_cells}
                         notebook=${this.state.notebook}
+                    />
+                    <${RunStaleCellsButton}
+                        notebook=${this.state.notebook}
+                        on_run=${(cell_ids) => this.actions.set_and_run_multiple(cell_ids)}
                     />
                     <${UndoDelete}
                         recently_deleted=${this.state.recently_deleted}

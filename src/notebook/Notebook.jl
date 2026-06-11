@@ -70,6 +70,8 @@ Base.@kwdef mutable struct Notebook
     wants_to_interrupt::Bool=false
     last_save_time::Float64=time()
     last_hot_reload_time::Float64=zero(time())
+    "Hash of the file contents we last wrote to `path`. Used by the file watcher to distinguish our own saves from external edits — more reliable than a time-based cooldown, which can silently swallow external edits that land just after a save."
+    last_saved_file_hash::UInt64=zero(UInt64)
 
     bonds::Dict{Symbol,BondValue}=Dict{Symbol,BondValue}()
 

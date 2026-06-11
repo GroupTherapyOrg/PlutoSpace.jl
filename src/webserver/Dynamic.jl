@@ -128,6 +128,7 @@ function notebook_to_js(notebook::Notebook)
                 "runtime" => cell.runtime,
                 "logs" => FirebaseyUtils.AppendonlyMarker(cell.logs),
                 "depends_on_skipped_cells" => cell.depends_on_skipped_cells,
+                "stale" => cell.stale,
             )
         for (id, cell) in notebook.cells_dict),
         "cell_order" => notebook.cell_order,
@@ -441,6 +442,11 @@ responses[:run_multiple_cells] = function response_run_multiple_cells(🙋::Clie
     uuids = UUID.(🙋.body["cells"])
     cells = map(uuids) do uuid
         🙋.notebook.cells_dict[uuid]
+    end
+
+    if is_lazy(🙋.session)
+        # pull-based run: if any requested cell has stale inputs, run those too, so nothing computes against outdated values
+        cells = expand_stale_ancestors(🙋.notebook, cells)
     end
 
     if will_run_code(🙋.notebook)
