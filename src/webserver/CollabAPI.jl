@@ -57,7 +57,8 @@ function write_collab_registry_file(session::ServerSession, port::Integer)
     dir = collab_registry_dir()
     mkpath(dir)
     path = collab_registry_path(port)
-    write(path, """{"pid": $(getpid()), "host": $(_json_string(session.options.server.host)), "port": $(port), "secret": $(_json_string(session.secret)), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
+    ws = session.options.server.workspace_folder
+    write(path, """{"pid": $(getpid()), "host": $(_json_string(session.options.server.host)), "port": $(port), "secret": $(_json_string(session.secret)), "workspace": $(ws === nothing ? "null" : _json_string(tamepath(ws))), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
     try
         chmod(path, 0o600) # the file contains the access secret
     catch end
@@ -69,6 +70,55 @@ function remove_collab_registry_file(port::Integer)
     try
         isfile(path) && rm(path)
     catch end
+end
+
+# --- the workspace tree (PlutoLand) ---
+
+"Does this file look like a Pluto notebook? (`.jl` extension + the Pluto header on line 1)"
+function _is_pluto_notebook_file(path::String)::Bool
+    endswith(path, ".jl") || return false
+    try
+        Base.open(io -> startswith(readline(io), _notebook_header), path, "r")
+    catch
+        false
+    end
+end
+
+const _WORKSPACE_SKIPLIST = ("node_modules", "frontend-dist")
+
+"Recursive listing of a workspace folder as JSON-able pairs. Depth- and entry-budgeted; hidden files and bulky tool directories are skipped."
+function _workspace_entries(dir::String; depth::Int=6, budget::Ref{Int}=Ref(2000))
+    entries = Vector{Pair}[]
+    isdir(dir) || return entries
+    names = try
+        sort(readdir(dir))
+    catch
+        return entries
+    end
+    # directories first, like every file browser
+    for want_dir in (true, false), name in names
+        budget[] <= 0 && break
+        startswith(name, ".") && continue
+        name ∈ _WORKSPACE_SKIPLIST && continue
+        p = joinpath(dir, name)
+        isdir(p) == want_dir || continue
+        budget[] -= 1
+        if want_dir
+            push!(entries, Pair[
+                "name" => name,
+                "path" => p,
+                "type" => "dir",
+                "children" => depth <= 0 ? Vector{Pair}[] : _workspace_entries(p; depth=depth - 1, budget),
+            ])
+        else
+            push!(entries, Pair[
+                "name" => name,
+                "path" => p,
+                "type" => _is_pluto_notebook_file(p) ? "notebook" : "file",
+            ])
+        end
+    end
+    entries
 end
 
 # --- the API routes ---
@@ -243,6 +293,19 @@ function register_collab_api!(router, session::ServerSession)
         end
     end
     HTTP.register!(router, "POST", "/api/v1/notebook/run", serve_api_run)
+
+    function serve_api_workspace(request::HTTP.Request)
+        ws = session.options.server.workspace_folder
+        ws === nothing && return _api_error(404, "this server has no workspace folder — start with Pluto.run(workspace=\"/path\")", false)
+        root = tamepath(ws)
+        isdir(root) || return _api_error(404, "workspace folder does not exist: $root", false)
+        body = _json(Pair[
+            "root" => root,
+            "entries" => _workspace_entries(root),
+        ])
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], body * "\n")
+    end
+    HTTP.register!(router, "GET", "/api/v1/workspace", serve_api_workspace)
 
     function serve_api_interrupt(request::HTTP.Request)
         query = HTTP.queryparams(HTTP.URI(request.target))
