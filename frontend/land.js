@@ -84,6 +84,32 @@ const FileEntry = ({ entry, on_open_notebook, on_open_file, on_create_in, on_del
 const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
     const [listing, set_listing] = useState(/** @type {{path: String, parent: String, dirs: Array<String>}?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
+    const [ssh_hosts, set_ssh_hosts] = useState(/** @type {Array<String>} */ ([]))
+    const [remote_states, set_remote_states] = useState(/** @type {Record<String, {state: String, detail: String, url: String?}>} */ ({}))
+
+    useEffect(() => {
+        get_json("./api/v1/ssh_hosts")
+            .then(set_ssh_hosts)
+            .catch(() => {})
+    }, [])
+
+    const connect_remote = useCallback(async (host) => {
+        // everything happens server-side, idempotently: reuse a live tunnel/server, bootstrap only on first contact
+        try {
+            let status = await get_json(`./api/v1/remote/open?host=${encodeURIComponent(host)}`, { method: "POST" })
+            set_remote_states((s) => ({ ...s, [host]: status }))
+            while (status.state !== "ready" && status.state !== "error") {
+                await new Promise((r) => setTimeout(r, 1500))
+                status = await get_json(`./api/v1/remote/status?host=${encodeURIComponent(host)}`)
+                set_remote_states((s) => ({ ...s, [host]: status }))
+            }
+            if (status.state === "ready" && status.url != null) {
+                window.open(status.url, "_blank") // may be blocked: the pill stays a clickable link either way
+            }
+        } catch (e) {
+            set_remote_states((s) => ({ ...s, [host]: { state: "error", detail: String(e), url: null } }))
+        }
+    }, [])
 
     const browse = useCallback(async (path) => {
         try {
@@ -188,6 +214,35 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
                           </div>
                       `}
             </section>
+            ${ssh_hosts.length > 0
+                ? html`<section>
+                      <h2>SSH Remotes</h2>
+                      <p class="subtitle small">
+                          Click a host: the whole Land (files, kernels, terminal) runs on that machine over an SSH tunnel. First contact installs the
+                          server there; after that it reconnects instantly.
+                      </p>
+                      <div class="dir-grid">
+                          ${ssh_hosts.map((h) => {
+                              const st = remote_states[h]
+                              const busy = st != null && st.state !== "ready" && st.state !== "error"
+                              return st?.state === "ready" && st.url != null
+                                  ? html`<a class="dir-pill remote-ready" href=${st.url} target="_blank" title=${st.detail}>
+                                        <span class="dir-icon">🛰</span>${h} →
+                                    </a>`
+                                  : html`<button
+                                        class="dir-pill ${busy ? "remote-busy" : ""} ${st?.state === "error" ? "remote-error" : ""}"
+                                        title=${st?.detail ?? `Open a workspace on ${h}`}
+                                        onClick=${() => connect_remote(h)}
+                                    >
+                                        <span class="dir-icon">🛰</span>${busy ? `${h}: ${st.state}…` : st?.state === "error" ? `${h}: failed (retry)` : h}
+                                    </button>`
+                          })}
+                      </div>
+                      ${Object.values(remote_states).some((st) => st.state === "error")
+                          ? html`<p class="opener-error">${Object.entries(remote_states).filter(([_, st]) => st.state === "error").map(([h, st]) => `${h}: ${st.detail}`).join(" · ")}</p>`
+                          : null}
+                  </section>`
+                : null}
             ${error == null ? null : html`<p class="opener-error">${error}</p>`}
         </div>
     </div>`

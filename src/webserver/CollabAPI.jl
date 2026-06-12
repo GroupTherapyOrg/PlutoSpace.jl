@@ -325,6 +325,25 @@ function register_collab_api!(router, session::ServerSession)
     end
     HTTP.register!(router, "POST", "/api/v1/workspace/open", serve_api_workspace_open)
 
+    function serve_api_ssh_hosts(request::HTTP.Request)
+        # the user's already-keyed remotes: Host entries from ~/.ssh/config (wildcards skipped)
+        hosts = String[]
+        config = joinpath(homedir(), ".ssh", "config")
+        if isfile(config)
+            for line in eachline(config)
+                m = match(r"^\s*Host\s+(.+)$"i, line)
+                m === nothing && continue
+                for h in split(m.captures[1])
+                    (occursin('*', h) || occursin('?', h) || occursin('!', h)) && continue
+                    push!(hosts, String(h))
+                end
+            end
+        end
+        body = _json(unique(hosts))
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], body * "\n")
+    end
+    HTTP.register!(router, "GET", "/api/v1/ssh_hosts", serve_api_ssh_hosts)
+
     function serve_api_workspace(request::HTTP.Request)
         ws = session.options.server.workspace_folder
         ws === nothing && return _api_error(404, "this server has no workspace folder — start with Pluto.run(workspace=\"/path\")", false)

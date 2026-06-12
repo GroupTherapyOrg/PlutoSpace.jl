@@ -135,6 +135,7 @@ function http_router_for(session::ServerSession)
 
     # the collab API: lets external tools (coding agents, scripts) read notebook state and run cells over plain HTTP
     register_collab_api!(router, session)
+    register_collab_remote!(router, session)
 
     
     function serve_sample(request::HTTP.Request)

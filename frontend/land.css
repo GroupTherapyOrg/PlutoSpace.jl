@@ -658,6 +658,11 @@ body.resizing #frames iframe {
     margin: 0.35rem 0 0 0;
 }
 
+.opener-card .subtitle.small {
+    font-size: 0.78rem;
+    margin: 0 0.15rem 0.5rem 0.15rem;
+}
+
 .opener-card h2 {
     font-size: 0.68rem;
     text-transform: uppercase;
@@ -785,6 +790,31 @@ body.resizing #frames iframe {
 
 .dir-pill .dir-icon {
     margin-right: 0.4em;
+}
+
+a.dir-pill {
+    text-decoration: none;
+    box-sizing: border-box;
+    display: block;
+}
+
+.dir-pill.remote-busy {
+    opacity: 0.7;
+    animation: remote-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes remote-pulse {
+    50% {
+        opacity: 0.4;
+    }
+}
+
+.dir-pill.remote-error {
+    box-shadow: inset 0 0 0 2px rgba(var(--error-color, 240, 168, 168), 0.7);
+}
+
+.dir-pill.remote-ready {
+    box-shadow: inset 0 0 0 2px var(--cm-color-builtin, #5e7be1);
 }
 
 .opener-actions {
