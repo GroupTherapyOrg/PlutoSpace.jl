@@ -78,7 +78,7 @@ body.resizing #frames iframe {
 
 #land .header-row {
     display: flex;
-    align-items: flex-start;
+    align-items: center; /* single-line wordmark: icon, text, buttons share one centerline */
     gap: 0.6rem;
 }
 
