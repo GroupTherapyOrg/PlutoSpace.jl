@@ -118,21 +118,27 @@ function _remote_connect_task!(r::RemoteSession)
                 return
             end
 
-            # idempotent bootstrap: a half-failed previous attempt is cleaned up, a good clone is reused
-            ok, out = _ssh_try(r.host, "test -d $(REMOTE_BOOTSTRAP_DIR)/.git && echo present || echo absent")
-            if !occursin("present", out)
+            # idempotent bootstrap with a COMPLETION MARKER (the VS Code Remote-SSH pattern):
+            # the install only counts once instantiate finished; a clone without the marker
+            # resumes at instantiate, a missing clone starts over.
+            ok, out = _ssh_try(r.host, "test -f ~/.plutoland/.install_ok && echo done; test -d $(REMOTE_BOOTSTRAP_DIR)/.git && echo cloned")
+            install_done = occursin("done", out)
+            cloned = occursin("cloned", out)
+            if !install_done
                 r.state = "installing"
-                r.detail = "first-time setup on $(r.host): cloning the fork (a minute or two)"
-                ok, out = _ssh_try(r.host, "rm -rf $(REMOTE_BOOTSTRAP_DIR) && mkdir -p ~/.plutoland && git clone --depth 1 --branch $(REMOTE_FORK_BRANCH) $(REMOTE_FORK_URL) $(REMOTE_BOOTSTRAP_DIR)")
-                if !ok
-                    hint = occursin(r"resolve host|Could not resolve|unable to access|Connection timed out|Network is unreachable"i, out) ?
-                        " — this node looks like it has NO INTERNET ACCESS (common for HPC compute/GPU nodes). Try your LOGIN node instead, or clone the fork to $(REMOTE_BOOTSTRAP_DIR) there manually." : ""
-                    r.state = "error"
-                    r.detail = "git clone failed on $(r.host): $(_tail(out))$(hint)"
-                    return
+                if !cloned
+                    r.detail = "first-time setup on $(r.host): cloning the fork (a minute or two)"
+                    ok, out = _ssh_try(r.host, "rm -rf $(REMOTE_BOOTSTRAP_DIR) && mkdir -p ~/.plutoland && git clone --depth 1 --branch $(REMOTE_FORK_BRANCH) $(REMOTE_FORK_URL) $(REMOTE_BOOTSTRAP_DIR)")
+                    if !ok
+                        hint = occursin(r"resolve host|Could not resolve|unable to access|Connection timed out|Network is unreachable"i, out) ?
+                            " — this node looks like it has NO INTERNET ACCESS (common for HPC compute/GPU nodes). Try your LOGIN node instead, or clone the fork to $(REMOTE_BOOTSTRAP_DIR) there manually." : ""
+                        r.state = "error"
+                        r.detail = "git clone failed on $(r.host): $(_tail(out))$(hint)"
+                        return
+                    end
                 end
-                r.detail = "first-time setup on $(r.host): instantiating julia packages (can take a few minutes)"
-                ok, out = _ssh_try(r.host, "cd $(REMOTE_BOOTSTRAP_DIR) && $(r.julia) --project=. -e 'import Pkg; Pkg.instantiate()'")
+                r.detail = "first-time setup on $(r.host): instantiating julia packages — the slow step, can take many minutes on cluster storage"
+                ok, out = _ssh_try(r.host, "cd $(REMOTE_BOOTSTRAP_DIR) && $(r.julia) --project=. -e 'import Pkg; Pkg.instantiate()' && touch ~/.plutoland/.install_ok")
                 if !ok
                     r.state = "error"
                     r.detail = "Pkg.instantiate failed on $(r.host): $(_tail(out))"
