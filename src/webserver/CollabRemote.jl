@@ -33,15 +33,21 @@ end
 const REMOTE_SESSIONS = Dict{String,RemoteSession}()
 const REMOTE_SESSIONS_LOCK = ReentrantLock()
 
+# ssh joins its argument vector into ONE space-separated string and the remote shell
+# re-splits it — so the command must be shell-quoted by US to survive the trip as a
+# single `bash -lc` argument. (Without this, `bash -lc rm -rf x` runs bare `rm`.)
+_ssh_command(host::String, cmd::String) =
+    `ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $(_shquote(cmd))`
+
 "Run a command on the remote through a login shell (so juliaup/julia are on PATH). Keyed auth only."
 function _ssh_run(host::String, cmd::String)::String
-    read(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $cmd`, String)
+    read(_ssh_command(host, cmd), String)
 end
 
 "Like `_ssh_run`, but never throws: returns (ok, combined stdout+stderr) so failures are diagnosable."
 function _ssh_try(host::String, cmd::String)::Tuple{Bool,String}
     out = IOBuffer()
-    proc = Base.run(pipeline(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $cmd`; stdout=out, stderr=out); wait=false)
+    proc = Base.run(pipeline(_ssh_command(host, cmd); stdout=out, stderr=out); wait=false)
     wait(proc)
     (success(proc), String(take!(out)))
 end
