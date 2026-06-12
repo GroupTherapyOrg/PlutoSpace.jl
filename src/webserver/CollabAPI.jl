@@ -294,6 +294,37 @@ function register_collab_api!(router, session::ServerSession)
     end
     HTTP.register!(router, "POST", "/api/v1/notebook/run", serve_api_run)
 
+    function serve_api_browse(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        path = haskey(query, "path") ? tamepath(query["path"]) : homedir()
+        isdir(path) || return _api_error(404, "not a directory: $path", false)
+        dirs = String[]
+        try
+            for name in sort(readdir(path))
+                startswith(name, ".") && continue
+                isdir(joinpath(path, name)) && push!(dirs, name)
+            end
+        catch end
+        body = _json(Pair["path" => path, "parent" => dirname(path), "dirs" => dirs])
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], body * "\n")
+    end
+    HTTP.register!(router, "GET", "/api/v1/browse", serve_api_browse)
+
+    function serve_api_workspace_open(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        haskey(query, "path") || return _api_error(400, "pass ?path=/abs/folder", false)
+        path = tamepath(query["path"])
+        isdir(path) || return _api_error(400, "not a directory: $path", false)
+        session.options.server.workspace_folder = path
+        # refresh the connection file so external tools see the new workspace root
+        port = session.options.server.port
+        port isa Integer && try
+            write_collab_registry_file(session, port)
+        catch end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(Pair["ok" => true, "root" => path]) * "\n")
+    end
+    HTTP.register!(router, "POST", "/api/v1/workspace/open", serve_api_workspace_open)
+
     function serve_api_workspace(request::HTTP.Request)
         ws = session.options.server.workspace_folder
         ws === nothing && return _api_error(404, "this server has no workspace folder — start with Pluto.run(workspace=\"/path\")", false)

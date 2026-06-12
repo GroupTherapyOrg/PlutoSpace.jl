@@ -148,6 +148,9 @@ function run!(session::ServerSession)
 
     local port, serversocket = port_serversocket(hostIP, favourite_port, port_hint)
 
+    # remember the actual port (it may have been auto-chosen) so e.g. the connection file can be rewritten when the workspace changes at runtime
+    session.options.server.port = port
+
     # connection file: lets external tools (e.g. coding agents) discover this server's port and secret
     write_collab_registry_file(session, port)
 

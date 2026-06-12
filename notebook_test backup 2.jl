@@ -42,6 +42,22 @@ summary = uppercase("totals: $total // r2 came out $verdict ($r2)")
 # ╔═╡ d4000001-0000-4000-8000-00000000000d
 report = "x is now $x · total=$total · message says: $message"
 
+# ╔═╡ 00000000-0000-0000-0000-000000000001
+PLUTO_PROJECT_TOML_CONTENTS = """
+[deps]
+"""
+
+# ╔═╡ 00000000-0000-0000-0000-000000000002
+PLUTO_MANIFEST_TOML_CONTENTS = """
+# This file is machine-generated - editing it directly is not advised
+
+julia_version = "1.12.6"
+manifest_format = "2.0"
+project_hash = "71853c6197a6a7f222db0f1978c7cb232b87c5ee"
+
+[deps]
+"""
+
 # ╔═╡ Cell order:
 # ╠═0fdad812-65af-11f1-9244-e5793823958b
 # ╠═14b53018-660b-4a50-8444-ae036e98f3ef
@@ -53,3 +69,5 @@ report = "x is now $x · total=$total · message says: $message"
 # ╠═c1000004-0000-4000-8000-000000000004
 # ╠═c1000005-0000-4000-8000-000000000005
 # ╠═d4000001-0000-4000-8000-00000000000d
+# ╟─00000000-0000-0000-0000-000000000001
+# ╟─00000000-0000-0000-0000-000000000002

@@ -373,6 +373,82 @@ body.resizing #frames iframe {
     opacity: 0.8;
 }
 
+/* ---- the "Open Folder" homepage (no workspace yet) ---- */
+
+.workspace-opener {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+.opener-card {
+    width: 34rem;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 1.5rem !important;
+}
+
+.opener-card h1 {
+    margin: 0;
+    font-size: 1.6rem;
+}
+
+.opener-card .subtitle {
+    opacity: 0.65;
+    margin: 0.3rem 0 1rem 0;
+}
+
+.opener-card h2 {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    opacity: 0.5;
+    margin: 1rem 0 0.3rem 0.4rem;
+}
+
+.opener-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.opener-card .entry-detail {
+    display: block;
+    font-size: 0.72rem;
+    opacity: 0.55;
+    font-family: var(--julia-mono-font-stack, monospace);
+}
+
+.opener-card .current-path {
+    margin: 0.2rem 0 0.4rem 0.4rem;
+    font-size: 0.78rem;
+    opacity: 0.7;
+    font-family: var(--julia-mono-font-stack, monospace);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.opener-card .browse-list {
+    max-height: 14rem;
+    overflow-y: auto;
+    margin-bottom: 0.8rem;
+}
+
+.opener-card .open-this-folder {
+    margin-top: 0.3rem;
+}
+
+.opener-card .opener-error {
+    margin-top: 0.8rem;
+    font-size: 0.8rem;
+    color: rgb(var(--error-color, 240, 168, 168));
+}
+
 #land-error {
     position: fixed;
     bottom: 0;

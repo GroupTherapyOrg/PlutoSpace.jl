@@ -1,23 +1,40 @@
 // PlutoLand — the workspace hub: a file browser + tabbed notebooks, all running on a
 // stock Pluto server. Every tab is the UNMODIFIED Pluto editor in an iframe (its own
 // websocket, its own state); the hub itself only talks to existing server endpoints:
-//   GET  ./api/v1/workspace   workspace file tree
-//   GET  ./api/v1/notebooks   running notebooks
-//   POST ./open?path=…        open a notebook, returns its id
-//   POST ./new                new notebook, returns its id
-//   POST ./move?id=…&newpath=…  rename/move (used to place new notebooks in the workspace)
-//   GET  ./shutdown?id=…      stop a notebook session
-import { html, render, useState, useEffect, useCallback } from "./imports/Preact.js"
+//   GET  ./api/v1/workspace        workspace file tree (404 → no workspace open yet)
+//   POST ./api/v1/workspace/open   open a folder as the workspace (VS Code "Open Folder")
+//   GET  ./api/v1/browse           directory listing for the folder picker
+//   GET  ./api/v1/notebooks        running notebooks
+//   POST ./open?path=…             open a notebook (Safe preview), returns its id
+//   POST ./new                     new notebook, returns its id
+//   POST ./move?id=…&newpath=…     rename/move (used to place new notebooks in the workspace)
+//   POST ./shutdown?id=…           stop a notebook session
+import { html, render, useState, useEffect, useCallback, useRef } from "./imports/Preact.js"
 
 const get_text = async (url, opts) => {
     const r = await fetch(url, opts)
     if (!r.ok) throw new Error(`${url} → ${r.status}`)
     return await r.text()
 }
-const get_json = async (url) => {
-    const r = await fetch(url)
+const get_json = async (url, opts) => {
+    const r = await fetch(url, opts)
     if (!r.ok) throw new Error(`${url} → ${r.status}`)
     return await r.json()
+}
+
+const basename = (p) => p.split("/").pop()
+
+const RECENT_KEY = "plutoland recent workspaces"
+const get_recent_workspaces = () => {
+    try {
+        const r = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]")
+        return Array.isArray(r) ? r : []
+    } catch {
+        return []
+    }
+}
+const remember_workspace = (path) => {
+    localStorage.setItem(RECENT_KEY, JSON.stringify([path, ...get_recent_workspaces().filter((p) => p !== path)].slice(0, 8)))
 }
 
 const FileEntry = ({ entry, on_open_notebook, depth }) => {
@@ -44,19 +61,134 @@ const FileEntry = ({ entry, on_open_notebook, depth }) => {
     return html`<li class="file"><span class="entry plain" title=${entry.path}><span class="icon"></span>${entry.name}</span></li>`
 }
 
+/** The VS Code "Open Folder" experience: browse the server's filesystem, pick a folder. */
+const WorkspaceOpener = ({ on_opened }) => {
+    const [listing, set_listing] = useState(/** @type {{path: String, parent: String, dirs: Array<String>}?} */ (null))
+    const [error, set_error] = useState(/** @type {String?} */ (null))
+
+    const browse = useCallback(async (path) => {
+        try {
+            set_listing(await get_json(path == null ? "./api/v1/browse" : `./api/v1/browse?path=${encodeURIComponent(path)}`))
+            set_error(null)
+        } catch (e) {
+            set_error(String(e))
+        }
+    }, [])
+
+    useEffect(() => {
+        browse(null)
+    }, [])
+
+    const open_workspace = useCallback(
+        async (path) => {
+            try {
+                const result = await get_json(`./api/v1/workspace/open?path=${encodeURIComponent(path)}`, { method: "POST" })
+                remember_workspace(result.root)
+                on_opened()
+            } catch (e) {
+                set_error(String(e))
+            }
+        },
+        [on_opened]
+    )
+
+    const recent = get_recent_workspaces()
+
+    return html`<div class="workspace-opener">
+        <div class="bubble opener-card">
+            <h1>Pluto<span class="land-accent">Land</span></h1>
+            <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
+
+            ${recent.length > 0
+                ? html`<section>
+                      <h2>Recent</h2>
+                      <ul>
+                          ${recent.map(
+                              (p) => html`<li>
+                                  <button class="entry" title=${p} onClick=${() => open_workspace(p)}>
+                                      <span class="icon">🗂</span>${basename(p)}<span class="entry-detail">${p}</span>
+                                  </button>
+                              </li>`
+                          )}
+                      </ul>
+                  </section>`
+                : null}
+
+            <section>
+                <h2>Browse</h2>
+                ${listing == null
+                    ? html`<p class="subtitle">loading…</p>`
+                    : html`
+                          <p class="current-path" title=${listing.path}>${listing.path}</p>
+                          <ul class="browse-list">
+                              ${listing.parent !== listing.path
+                                  ? html`<li><button class="entry" onClick=${() => browse(listing.parent)}><span class="icon">↰</span>..</button></li>`
+                                  : null}
+                              ${listing.dirs.map(
+                                  (name) => html`<li>
+                                      <button class="entry" onClick=${() => browse(`${listing.path}/${name}`)}><span class="icon">▸</span>${name}</button>
+                                  </li>`
+                              )}
+                          </ul>
+                          <button class="new-notebook open-this-folder" onClick=${() => open_workspace(listing.path)}>
+                              Open <strong>${basename(listing.path) || listing.path}</strong> as workspace
+                          </button>
+                      `}
+            </section>
+            ${error == null ? null : html`<p class="opener-error">${error}</p>`}
+        </div>
+    </div>`
+}
+
 const Land = () => {
     const [workspace, set_workspace] = useState(/** @type {{root: String, entries: Array}?} */ (null))
+    const [no_workspace, set_no_workspace] = useState(false)
     const [running, set_running] = useState(/** @type {Array<{notebook_id: String, path: String}>} */ ([]))
     const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String}>} */ ([]))
     const [active, set_active] = useState(/** @type {String?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
     const [sidebar_width, set_sidebar_width] = useState(() => Number(localStorage.getItem("plutoland sidebar width")) || 290)
     const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutoland sidebar hidden") === "true")
+    const auto_tabbed = useRef(false)
 
     useEffect(() => {
         localStorage.setItem("plutoland sidebar width", String(sidebar_width))
         localStorage.setItem("plutoland sidebar hidden", String(sidebar_hidden))
     }, [sidebar_width, sidebar_hidden])
+
+    const add_tab = useCallback((id, path) => {
+        set_tabs((tabs) => (tabs.some((t) => t.id === id) ? tabs : [...tabs, { id, path }]))
+        set_active(id)
+    }, [])
+
+    const refresh = useCallback(async () => {
+        try {
+            const ws_response = await fetch("./api/v1/workspace")
+            if (ws_response.status === 404) {
+                set_no_workspace(true)
+                set_workspace(null)
+            } else if (ws_response.ok) {
+                set_no_workspace(false)
+                set_workspace(await ws_response.json())
+            }
+            const running_now = await get_json("./api/v1/notebooks")
+            set_running(running_now)
+            // on first load, show already-running notebooks as tabs (e.g. one passed via Pluto.run(notebook=…))
+            if (!auto_tabbed.current) {
+                auto_tabbed.current = true
+                running_now.forEach((nb) => add_tab(nb.notebook_id, nb.path))
+            }
+            set_error(null)
+        } catch (e) {
+            set_error(String(e))
+        }
+    }, [add_tab])
+
+    useEffect(() => {
+        refresh()
+        const interval = setInterval(refresh, 10_000)
+        return () => clearInterval(interval)
+    }, [])
 
     const start_sidebar_resize = useCallback((e) => {
         e.preventDefault()
@@ -69,27 +201,6 @@ const Land = () => {
         }
         window.addEventListener("pointermove", move)
         window.addEventListener("pointerup", up)
-    }, [])
-
-    const refresh = useCallback(async () => {
-        try {
-            set_workspace(await get_json("./api/v1/workspace"))
-            set_running(await get_json("./api/v1/notebooks"))
-            set_error(null)
-        } catch (e) {
-            set_error(String(e))
-        }
-    }, [])
-
-    useEffect(() => {
-        refresh()
-        const interval = setInterval(refresh, 10_000)
-        return () => clearInterval(interval)
-    }, [])
-
-    const add_tab = useCallback((id, path) => {
-        set_tabs((tabs) => (tabs.some((t) => t.id === id) ? tabs : [...tabs, { id, path }]))
-        set_active(id)
     }, [])
 
     const open_notebook = useCallback(
@@ -120,17 +231,14 @@ const Land = () => {
         }
     }, [workspace, add_tab, refresh])
 
-    const close_tab = useCallback(
-        (id) => {
-            // closing a tab does NOT shut down the notebook (JupyterHub semantics) — it keeps running, listed under "Running"
-            set_tabs((tabs) => {
-                const remaining = tabs.filter((t) => t.id !== id)
-                set_active((a) => (a === id ? (remaining.length > 0 ? remaining[remaining.length - 1].id : null) : a))
-                return remaining
-            })
-        },
-        []
-    )
+    const close_tab = useCallback((id) => {
+        // closing a tab does NOT shut down the notebook (JupyterHub semantics) — it keeps running, listed under "Running"
+        set_tabs((tabs) => {
+            const remaining = tabs.filter((t) => t.id !== id)
+            set_active((a) => (a === id ? (remaining.length > 0 ? remaining[remaining.length - 1].id : null) : a))
+            return remaining
+        })
+    }, [])
 
     const shutdown_notebook = useCallback(
         async (id) => {
@@ -146,7 +254,10 @@ const Land = () => {
         [close_tab, refresh]
     )
 
-    const basename = (p) => p.split("/").pop()
+    // no workspace yet → the whole page is the opener (the VS Code "Open Folder" screen)
+    if (no_workspace) {
+        return html`<${WorkspaceOpener} on_opened=${refresh} />`
+    }
 
     return html`
         <div id="land">
