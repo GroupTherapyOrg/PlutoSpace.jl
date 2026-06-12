@@ -30,12 +30,76 @@ body {
 /* ---- sidebar: a stack of bubble cards ---- */
 
 #land > aside {
-    width: 290px;
+    width: 290px; /* overridden inline by the resizer */
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     overflow-y: auto;
+}
+
+#sidebar-resizer {
+    width: 6px;
+    margin: 0 -0.45rem; /* sit inside the flex gap */
+    flex-shrink: 0;
+    cursor: col-resize;
+    border-radius: 1000px;
+    transition: background-color 0.1s linear;
+}
+
+#sidebar-resizer:hover {
+    background-color: var(--cm-color-builtin, #5e7be1);
+    opacity: 0.5;
+}
+
+/* while dragging, don't let the editor iframes swallow pointer events */
+body.resizing,
+body.resizing * {
+    cursor: col-resize !important;
+}
+
+body.resizing #frames iframe {
+    pointer-events: none;
+}
+
+#land > aside header.bubble {
+    position: relative;
+}
+
+#land .sidebar-hide {
+    position: absolute;
+    top: 0.7rem;
+    right: 0.7rem;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 0.15rem 0.5rem;
+    border-radius: 1000px;
+}
+
+#land .sidebar-hide:hover {
+    opacity: 1;
+    background-color: var(--main-bg-color);
+}
+
+#sidebar-reopen {
+    align-self: flex-start;
+    flex-shrink: 0;
+    background-color: var(--code-background);
+    border: none;
+    color: inherit;
+    font: inherit;
+    padding: 0.35rem 0.7rem;
+    border-radius: 1000px;
+    box-shadow: -2px 4px 9px 0px #00000012;
+    cursor: pointer;
+}
+
+#sidebar-reopen:hover {
+    box-shadow: -2px 5px 12px 0px #0000001f;
 }
 
 #land .bubble {

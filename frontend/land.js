@@ -50,6 +50,26 @@ const Land = () => {
     const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String}>} */ ([]))
     const [active, set_active] = useState(/** @type {String?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
+    const [sidebar_width, set_sidebar_width] = useState(() => Number(localStorage.getItem("plutoland sidebar width")) || 290)
+    const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutoland sidebar hidden") === "true")
+
+    useEffect(() => {
+        localStorage.setItem("plutoland sidebar width", String(sidebar_width))
+        localStorage.setItem("plutoland sidebar hidden", String(sidebar_hidden))
+    }, [sidebar_width, sidebar_hidden])
+
+    const start_sidebar_resize = useCallback((e) => {
+        e.preventDefault()
+        document.body.classList.add("resizing") // disables pointer events on the iframes so the drag isn't swallowed
+        const move = (ev) => set_sidebar_width(Math.max(180, Math.min(560, ev.clientX - 12)))
+        const up = () => {
+            document.body.classList.remove("resizing")
+            window.removeEventListener("pointermove", move)
+            window.removeEventListener("pointerup", up)
+        }
+        window.addEventListener("pointermove", move)
+        window.addEventListener("pointerup", up)
+    }, [])
 
     const refresh = useCallback(async () => {
         try {
@@ -130,10 +150,13 @@ const Land = () => {
 
     return html`
         <div id="land">
-            <aside>
+            ${sidebar_hidden
+                ? html`<button id="sidebar-reopen" title="Show sidebar" onClick=${() => set_sidebar_hidden(false)}>☰</button>`
+                : html`<aside style=${`width: ${sidebar_width}px`}>
                 <header class="bubble">
                     <h1>Pluto<span class="land-accent">Land</span></h1>
                     <p class="workspace-root" title=${workspace?.root ?? ""}>${workspace == null ? "loading…" : basename(workspace.root)}</p>
+                    <button class="sidebar-hide" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}>⟨</button>
                 </header>
                 <section class="files bubble">
                     <h2>Workspace</h2>
@@ -161,7 +184,8 @@ const Land = () => {
                 <footer>
                     <button class="new-notebook" onClick=${new_notebook}>+ New notebook</button>
                 </footer>
-            </aside>
+            </aside>`}
+            ${sidebar_hidden ? null : html`<div id="sidebar-resizer" onPointerDown=${start_sidebar_resize}></div>`}
             <main>
                 <nav id="tabs" class=${tabs.length === 0 ? "empty" : ""}>
                     ${tabs.map(
