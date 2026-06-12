@@ -454,39 +454,41 @@ const Land = () => {
             </aside>`}
             ${sidebar_hidden ? null : html`<div id="sidebar-resizer" onPointerDown=${start_sidebar_resize}></div>`}
             <main>
-                <nav id="tabs">
-                    <div class="tab-scroller">
-                        ${tabs.map(
-                            (t) => html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
-                                <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
-                                <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
-                            </div>`
-                        )}
-                    </div>
-                    <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${() =>
-        set_terminal_open(!terminal_open)}>⌨ Terminal</button>
-                    ${terminal_open
-                        ? html`<button
-                              class="terminal-toggle dock-toggle"
-                              title=${terminal_dock === "bottom" ? "Dock terminal to the right" : "Dock terminal to the bottom"}
-                              onClick=${() => set_terminal_dock(terminal_dock === "bottom" ? "right" : "bottom")}
-                          >
-                              ${terminal_dock === "bottom" ? "◨" : "⬓"}
-                          </button>`
-                        : null}
-                </nav>
                 <div class="main-split ${terminal_dock}">
-                    <div id="frames">
-                        ${tabs.map(
-                            // every tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
-                            (t) => html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
-                        )}
-                        ${tabs.length === 0
-                            ? html`<div class="empty-state">
-                                  <p>Open a notebook from the workspace on the left, or create a new one.</p>
-                                  <p class="hint">Agents can work here too: edit any notebook file, or use <code>pluto-collab</code>.</p>
-                              </div>`
-                            : null}
+                    <div class="editor-card">
+                        <nav id="tabs">
+                            <div class="tab-scroller">
+                                ${tabs.map(
+                                    (t) => html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
+                                        <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
+                                        <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
+                                    </div>`
+                                )}
+                            </div>
+                            <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${() =>
+        set_terminal_open(!terminal_open)}>⌨ Terminal</button>
+                            ${terminal_open
+                                ? html`<button
+                                      class="terminal-toggle dock-toggle"
+                                      title=${terminal_dock === "bottom" ? "Dock terminal to the right" : "Dock terminal to the bottom"}
+                                      onClick=${() => set_terminal_dock(terminal_dock === "bottom" ? "right" : "bottom")}
+                                  >
+                                      ${terminal_dock === "bottom" ? "◨" : "⬓"}
+                                  </button>`
+                                : null}
+                        </nav>
+                        <div id="frames">
+                            ${tabs.map(
+                                // every tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
+                                (t) => html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
+                            )}
+                            ${tabs.length === 0
+                                ? html`<div class="empty-state">
+                                      <p>Open a notebook from the workspace on the left, or create a new one.</p>
+                                      <p class="hint">Agents can work here too: edit any notebook file, or use <code>pluto-collab</code>.</p>
+                                  </div>`
+                                : null}
+                        </div>
                     </div>
                     ${terminal_ever_opened.current
                         ? html`

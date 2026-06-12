@@ -73,6 +73,12 @@ body.resizing #frames iframe {
     min-width: 0;
 }
 
+#land .header-text h1 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .land-logo {
     width: 2.4rem;
     height: 2.4rem;
@@ -289,13 +295,27 @@ body.resizing #frames iframe {
     min-width: 0;
 }
 
+.editor-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    background-color: var(--code-background);
+    border-radius: 0.8rem;
+    box-shadow: -2px 4px 9px 0px #00000012;
+    overflow: hidden;
+}
+
 #tabs {
     display: flex;
     flex-wrap: nowrap;
     gap: 0.45rem;
-    min-height: 2.1rem;
+    min-height: 2.4rem;
     align-items: center;
     flex-shrink: 0;
+    padding: 0.4rem 0.6rem;
+    box-shadow: inset 0 -1px 0 var(--rule-color);
 }
 
 /* the tabs scroll in their own strip; the terminal toggles stay pinned on the far right */
@@ -313,7 +333,7 @@ body.resizing #frames iframe {
 
 .terminal-toggle {
     flex-shrink: 0;
-    background-color: var(--code-background);
+    background-color: var(--main-bg-color);
     border: none;
     color: inherit;
     font: inherit;
@@ -321,7 +341,6 @@ body.resizing #frames iframe {
     font-weight: 600;
     padding: 0.35rem 0.9rem;
     border-radius: 1000px;
-    box-shadow: -2px 4px 9px 0px #00000012;
     cursor: pointer;
     opacity: 0.8;
     transition: opacity 0.08s linear, box-shadow 0.08s linear;
@@ -342,8 +361,7 @@ body.resizing #frames iframe {
     flex-shrink: 0;
     max-width: 16rem;
     border-radius: 1000px;
-    background-color: var(--code-background);
-    box-shadow: -2px 4px 9px 0px #00000012;
+    background-color: var(--main-bg-color);
     opacity: 0.75;
     transition: opacity 0.08s linear, box-shadow 0.08s linear;
 }
@@ -354,7 +372,7 @@ body.resizing #frames iframe {
 
 #tabs .tab.active {
     opacity: 1;
-    box-shadow: -2px 5px 12px 0px #0000001f, inset 0 0 0 2px var(--cm-color-builtin, #5e7be1);
+    box-shadow: inset 0 0 0 2px var(--cm-color-builtin, #5e7be1);
 }
 
 #tabs .tab .title {
@@ -389,10 +407,8 @@ body.resizing #frames iframe {
     min-width: 0;
     min-height: 0;
     position: relative;
-    border-radius: 0.8rem;
     overflow: hidden;
-    background-color: var(--code-background);
-    box-shadow: -2px 4px 9px 0px #00000012;
+    background-color: var(--main-bg-color);
 }
 
 #frames iframe {
