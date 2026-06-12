@@ -57,7 +57,11 @@ _tail(s::String; n=4) = join(last(split(strip(s), '\n'), n), " · ")
 # julia is often invisible to non-interactive login shells on clusters (module load / .bashrc
 # only happen interactively) — so hunt for it and use the ABSOLUTE path from then on.
 const _FIND_JULIA_SNIPPET = raw"""
-p=$(command -v julia 2>/dev/null)
+# prefer a REAL julia binary over the juliaup shim: the shim takes juliaup's config lock
+# and may block forever on a hung self-update (e.g. on internet-less compute nodes)
+p=$(ls -d "$HOME"/.julia/juliaup/julia-*/bin/julia 2>/dev/null | sort -V | tail -n 1)
+[ -z "$p" ] && p=$(command -v julia 2>/dev/null)
+case "$p" in *"/.juliaup/bin/"*) real=$(ls -d "$HOME"/.julia/juliaup/julia-*/bin/julia 2>/dev/null | sort -V | tail -n 1); [ -n "$real" ] && p="$real" ;; esac
 [ -z "$p" ] && [ -x "$HOME/.juliaup/bin/julia" ] && p="$HOME/.juliaup/bin/julia"
 [ -z "$p" ] && [ -x "$HOME/.local/bin/julia" ] && p="$HOME/.local/bin/julia"
 [ -z "$p" ] && p=$(bash -ic 'command -v julia' 2>/dev/null | tail -n 1)
@@ -160,15 +164,23 @@ function _remote_connect_task!(r::RemoteSession)
                 while true
                     sleep(5)
                     elapsed = round(Int, (time() - started) / 60)
-                    r.detail = "first-time setup on $(r.host): instantiating julia packages — the slow step ($(elapsed) min elapsed; survives disconnects, resumes if interrupted)"
-                    _, out = _ssh_try(r.host, "test -f ~/.plutoland/.install_ok && echo done; kill -0 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null && echo alive")
-                    occursin("done", out) && break
-                    if !occursin("alive", out)
+                    # PROOF over promises: stream the live install log line into the banner
+                    _, out = _ssh_try(r.host, "test -f ~/.plutoland/.install_ok && echo __DONE__; kill -0 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null && echo __ALIVE__; tail -n 1 ~/.plutoland/install.log 2>/dev/null")
+                    occursin("__DONE__", out) && break
+                    log_line = strip(replace(replace(out, "__ALIVE__" => ""), "__DONE__" => ""))
+                    if occursin("Juliaup configuration is locked", out)
+                        _ssh_try(r.host, "kill -9 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null; rm -f ~/.plutoland/install.pid")
+                        r.state = "error"
+                        r.detail = "the juliaup shim deadlocked on its config lock on $(r.host) (often a hung self-update on an internet-less node) — retry: the real julia binary will be used directly"
+                        return
+                    end
+                    if !occursin("__ALIVE__", out)
                         _, log = _ssh_try(r.host, "tail -n 6 ~/.plutoland/install.log 2>/dev/null")
                         r.state = "error"
                         r.detail = "Pkg.instantiate failed on $(r.host): $(_tail(log))"
                         return
                     end
+                    r.detail = "installing on $(r.host) ($(elapsed) min): $(isempty(log_line) ? "starting up…" : last(log_line, 110))"
                     if time() - started > 45 * 60
                         r.state = "error"
                         r.detail = "install on $(r.host) still not finished after 45 minutes — check ~/.plutoland/install.log there"
