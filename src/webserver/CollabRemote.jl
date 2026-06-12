@@ -137,12 +137,43 @@ function _remote_connect_task!(r::RemoteSession)
                         return
                     end
                 end
-                r.detail = "first-time setup on $(r.host): instantiating julia packages — the slow step, can take many minutes on cluster storage"
-                ok, out = _ssh_try(r.host, "cd $(REMOTE_BOOTSTRAP_DIR) && $(r.julia) --project=. -e 'import Pkg; Pkg.instantiate()' && touch ~/.plutoland/.install_ok")
-                if !ok
-                    r.state = "error"
-                    r.detail = "Pkg.instantiate failed on $(r.host): $(_tail(out))"
-                    return
+                # run the slow step DETACHED on the remote (nohup + pidfile + log): it survives
+                # connection drops and local restarts; we just poll for the completion marker.
+                # If an install is already running (e.g. we reconnected), attach to it instead.
+                _, out = _ssh_try(r.host, "kill -0 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null && echo alive || echo dead")
+                if !occursin("alive", out)
+                    launch = """
+                    mkdir -p ~/.plutoland
+                    rm -f ~/.plutoland/.install_ok
+                    nohup sh -c 'cd "\$HOME/.plutoland/Pluto.jl" && $(r.julia) --project=. -e "import Pkg; Pkg.instantiate()" && touch "\$HOME/.plutoland/.install_ok"' > ~/.plutoland/install.log 2>&1 < /dev/null &
+                    echo \$! > ~/.plutoland/install.pid
+                    echo launched
+                    """
+                    ok, out = _ssh_try(r.host, launch)
+                    if !ok || !occursin("launched", out)
+                        r.state = "error"
+                        r.detail = "could not start the install on $(r.host): $(_tail(out))"
+                        return
+                    end
+                end
+                started = time()
+                while true
+                    sleep(5)
+                    elapsed = round(Int, (time() - started) / 60)
+                    r.detail = "first-time setup on $(r.host): instantiating julia packages — the slow step ($(elapsed) min elapsed; survives disconnects, resumes if interrupted)"
+                    _, out = _ssh_try(r.host, "test -f ~/.plutoland/.install_ok && echo done; kill -0 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null && echo alive")
+                    occursin("done", out) && break
+                    if !occursin("alive", out)
+                        _, log = _ssh_try(r.host, "tail -n 6 ~/.plutoland/install.log 2>/dev/null")
+                        r.state = "error"
+                        r.detail = "Pkg.instantiate failed on $(r.host): $(_tail(log))"
+                        return
+                    end
+                    if time() - started > 45 * 60
+                        r.state = "error"
+                        r.detail = "install on $(r.host) still not finished after 45 minutes — check ~/.plutoland/install.log there"
+                        return
+                    end
                 end
             end
 
