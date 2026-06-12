@@ -238,6 +238,20 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
                                     </button>`
                           })}
                       </div>
+                      ${Object.entries(remote_states)
+                          .filter(([_, st]) => st.state !== "ready" && st.state !== "error")
+                          .map(
+                              ([h, st]) => html`<div class="remote-progress" key=${h}>
+                                  <span class="remote-spinner"></span>
+                                  <div class="remote-progress-text">
+                                      <strong>Connecting to ${h} — ${st.state}</strong>
+                                      <span>${st.detail}</span>
+                                      ${st.state === "installing"
+                                          ? html`<span class="remote-progress-note">First-time setup compiles a lot of Julia — this is the slow step. Leave this page open; it will connect by itself.</span>`
+                                          : null}
+                                  </div>
+                              </div>`
+                          )}
                       ${Object.values(remote_states).some((st) => st.state === "error")
                           ? html`<p class="opener-error">${Object.entries(remote_states).filter(([_, st]) => st.state === "error").map(([h, st]) => `${h}: ${st.detail}`).join(" · ")}</p>`
                           : null}
