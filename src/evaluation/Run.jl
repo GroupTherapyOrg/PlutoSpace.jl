@@ -117,6 +117,8 @@ function run_reactive_core!(
     for cell in to_run
         cell.queued = true
         cell.depends_on_disabled_cells = false
+        # being queued for execution consumes the pending (stale) mark — same as vanilla Pluto, where submitting a draft clears its "modified" state the moment the run starts
+        cell.stale = false
     end
 	
     for (cell, error) in new_order.errable

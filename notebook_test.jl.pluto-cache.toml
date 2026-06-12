@@ -7,87 +7,88 @@ pluto_version = "v1.0.2"
 errored = false
 execution_key = "bd965b5613abba6e"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ojUwsHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqK6AbajeO3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaF4"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ojUwsHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqK6GEh9FG3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZaF4"
 result_hash = "bac66740bff7e7e3"
-runtime_ns = 32166
+runtime_ns = 0
 text_representation = "50"
 
 [cells.14b53018-660b-4a50-8444-ae036e98f3ef]
 errored = false
-execution_key = "de8645343271eab3"
+execution_key = "fa64877cbbcd1997"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozE1MLBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiugG/abKt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheQ=="
-result_hash = "a5f741a486b06c49"
-runtime_ns = 36541
-text_representation = "150"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozI1MLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiuhtNFj7t2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheQ=="
+result_hash = "227340d48584f4d1"
+runtime_ns = 15083
+text_representation = "250"
 
 [cells.a1b2c3d4-0000-4000-8000-123456789abc]
 errored = false
-execution_key = "7117d647e8685e7b"
+execution_key = "6933411c07727472"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozIwMLBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiugG/kh3t2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheg=="
-result_hash = "131346ceef0311b7"
-runtime_ns = 20000
-text_representation = "200"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMwMLBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiuhtNH/Yt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWheg=="
+result_hash = "b6a829b7f4a170ea"
+runtime_ns = 0
+text_representation = "300"
 
 [cells.b2c3d4e5-0000-4000-8000-abcdef012345]
 errored = false
-execution_key = "5f4a32aada9ff3dc"
+execution_key = "451fd2564a91c412"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52TUiQUdFTlQgV0FTIEhFUkU6IHo9MjAwLCB4PTUwIOKAlCBidXQgbm90aGluZyByYW4geWV0IrBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiugHM8K9t2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWnbWVzc2FnZQ=="
-result_hash = "d31023326d7b8a2a"
-runtime_ns = 42624
-text_representation = "\"AGENT WAS HERE: z=200, x=50 — but nothing ran yet\""
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52TUiQUdFTlQgV0FTIEhFUkU6IHo9MzAwLCB4PTUwIOKAlCBidXQgbm90aGluZyByYW4geWV0IrBwZXJzaXN0X2pzX3N0YXRlw6RtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiuhtNKhEt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWnbWVzc2FnZQ=="
+result_hash = "1aca3b6d5cdd32eb"
+runtime_ns = 2333
+text_representation = "\"AGENT WAS HERE: z=300, x=50 — but nothing ran yet\""
 
 [cells.c1000001-0000-4000-8000-000000000001]
 errored = false
-execution_key = "1d3c6f23631b216d"
+execution_key = "d2e433776f63062d"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozMyOLBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiugZgADzt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjE="
-result_hash = "8ce352070e9528bf"
-runtime_ns = 8001967958
-text_representation = "328"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5ozgxMrBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0Haiuhwi5Tdt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjE="
+result_hash = "6ea1cae961f0e3fe"
+runtime_ns = 1005040292
+text_representation = "812"
 
 [cells.c1000002-0000-4000-8000-000000000002]
 errored = false
 execution_key = "f0415a445086a6c4"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5py0xNTguOTKwcGVyc2lzdF9qc19zdGF0ZcKkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2ornZomz3bdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlonIy"
-result_hash = "965e2ad7e197c474"
-runtime_ns = 6007098501
-text_representation = "-158.92"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pjI3Mi4wObBwZXJzaXN0X2pzX3N0YXRlwqRtaW1lqnRleHQvcGxhaW6ybGFzdF9ydW5fdGltZXN0YW1wy0HaiuhfHcJEt2hhc19wbHV0b19ob29rX2ZlYXR1cmVzwqxyb290YXNzaWduZWWicjI="
+result_hash = "cebc6b497fe50733"
+runtime_ns = 6003102458
+text_representation = "272.09"
 
 [cells.c1000003-0000-4000-8000-000000000003]
 errored = false
-execution_key = "c002f9e3fba07ad1"
+execution_key = "45f7c5ba793edefe"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pDMxNTawcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oroGYMQ3LdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlpXRvdGFs"
-result_hash = "505a1d713ab44c7"
-runtime_ns = 8166
-text_representation = "3156"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5pDQxMjSwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2orocJB9JLdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlpXRvdGFs"
+result_hash = "9194251e78ee6583"
+runtime_ns = 2167
+text_representation = "4124"
 
 [cells.c1000004-0000-4000-8000-000000000004]
 errored = false
-execution_key = "bfa31ae9b0ca1224"
+execution_key = "69270da771a89a8a"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5riJORUdBVElWRSDinJgisHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqK52a8MqW3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZad2ZXJkaWN0"
-result_hash = "e4d2571f8dcacc57"
-runtime_ns = 10626
-text_representation = "\"NEGATIVE ✘\""
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5qyJCSUcgKDI3MikisHBlcnNpc3RfanNfc3RhdGXCpG1pbWWqdGV4dC9wbGFpbrJsYXN0X3J1bl90aW1lc3RhbXDLQdqK6GElzdW3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZad2ZXJkaWN0"
+result_hash = "3639bc8855e471ed"
+runtime_ns = 94750
+text_representation = "\"BIG (272)\""
 
 [cells.c1000005-0000-4000-8000-000000000005]
-errored = true
-execution_key = "6769ad6380876d2f"
-mime = "application/vnd.pluto.stacktrace+object"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R5g6Ntc2fZeVVuZGVmVmFyRXJyb3I6IGB2ZXJkaWN0YCBub3QgZGVmaW5lZCBpbiBgTWFpbi52YXIid29ya3NwYWNlIzMiYApTdWdnZXN0aW9uOiBjaGVjayBmb3Igc3BlbGxpbmcgZXJyb3JzIG9yIG1pc3NpbmcgaW1wb3J0cy6qc3RhY2t0cmFjZZGMqmNhbGxfc2hvcnSvdG9wLWxldmVsIHNjb3Blp2lubGluZWTCo3VybMCkcGF0aNlwL1VzZXJzL2RhbGVibGFjay9Eb2N1bWVudHMvZGV2L0dyb3VwVGhlcmFweU9yZy9QbHV0by5qbC9ub3RlYm9va190ZXN0LmpsIz09I2MxMDAwMDA1LTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNa5zb3VyY2VfcGFja2FnZcCkY2FsbK90b3AtbGV2ZWwgc2NvcGWqbGluZm9fdHlwZa1Db3JlLkNvZGVJbmZvpGxpbmUBpGZpbGXZOG5vdGVib29rX3Rlc3QuamwjPT0jYzEwMDAwMDUtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDA1pGZ1bmOvdG9wLWxldmVsIHNjb3BlrXBhcmVudF9tb2R1bGXApmZyb21fY8KrcGxhaW5fZXJyb3LaAQNVbmRlZlZhckVycm9yOiBgdmVyZGljdGAgbm90IGRlZmluZWQgaW4gYE1haW4udmFyIndvcmtzcGFjZSMzImAKU3VnZ2VzdGlvbjogY2hlY2sgZm9yIHNwZWxsaW5nIGVycm9ycyBvciBtaXNzaW5nIGltcG9ydHMuClN0YWNrdHJhY2U6CiBbMV0gdG9wLWxldmVsIHNjb3BlCiAgIEAgfi9Eb2N1bWVudHMvZGV2L0dyb3VwVGhlcmFweU9yZy9QbHV0by5qbC9ub3RlYm9va190ZXN0LmpsIz09I2MxMDAwMDA1LTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwNToxsHBlcnNpc3RfanNfc3RhdGXDpG1pbWXZJ2FwcGxpY2F0aW9uL3ZuZC5wbHV0by5zdGFja3RyYWNlK29iamVjdLJsYXN0X3J1bl90aW1lc3RhbXDLQdqK6BmEgcu3aGFzX3BsdXRvX2hvb2tfZmVhdHVyZXPCrHJvb3Rhc3NpZ25lZadzdW1tYXJ5"
-result_hash = "27a3a513e7b633b5"
-text_representation = """UndefVarError: `verdict` not defined in `Main.var\"workspace#3\"`\nSuggestion: check for spelling errors or missing imports."""
+errored = false
+execution_key = "e7e71d2935743202"
+mime = "text/plain"
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52TAiVE9UQUxTOiA0MTI0IC8vIFIyIENBTUUgT1VUIEJJRyAoMjcyKSAoMjcyLjA5KSKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2orocJKMnLdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlp3N1bW1hcnk="
+result_hash = "5e452960ed8f7a50"
+runtime_ns = 10709
+text_representation = "\"TOTALS: 4124 // R2 CAME OUT BIG (272) (272.09)\""
 
 [cells.d4000001-0000-4000-8000-00000000000d]
 errored = false
-execution_key = "db1ac29ea733094"
+execution_key = "fe1d878e855fdc49"
 mime = "text/plain"
-output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52WAieCBpcyBub3cgNTAgwrcgdG90YWw9MzE1NiDCtyBtZXNzYWdlIHNheXM6IEFHRU5UIFdBUyBIRVJFOiB6PTIwMCwgeD01MCDigJQgYnV0IG5vdGhpbmcgcmFuIHlldCKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2oroGZyzKbdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlpnJlcG9ydA=="
-result_hash = "6a1817eed56ad915"
-runtime_ns = 13125
-text_representation = "\"x is now 50 · total=3156 · message says: AGENT WAS HERE: z=200, x=50 — but nothing ran yet\""
+output_packed = "grFwdWJsaXNoZWRfb2JqZWN0c4Cmb3V0cHV0hqRib2R52WAieCBpcyBub3cgNTAgwrcgdG90YWw9NDEyNCDCtyBtZXNzYWdlIHNheXM6IEFHRU5UIFdBUyBIRVJFOiB6PTMwMCwgeD01MCDigJQgYnV0IG5vdGhpbmcgcmFuIHlldCKwcGVyc2lzdF9qc19zdGF0ZcOkbWltZap0ZXh0L3BsYWlusmxhc3RfcnVuX3RpbWVzdGFtcMtB2orocJOZSrdoYXNfcGx1dG9faG9va19mZWF0dXJlc8Kscm9vdGFzc2lnbmVlpnJlcG9ydA=="
+result_hash = "43df3a01df0fe28f"
+runtime_ns = 4375
+text_representation = "\"x is now 50 · total=4124 · message says: AGENT WAS HERE: z=300, x=50 — but nothing ran yet\""

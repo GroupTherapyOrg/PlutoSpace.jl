@@ -8,7 +8,7 @@ using InteractiveUtils
 x = 50
 
 # ╔═╡ 14b53018-660b-4a50-8444-ae036e98f3ef
-y = x * 3
+y = x * 5
 
 # ╔═╡ a1b2c3d4-0000-4000-8000-123456789abc
 z = y + x
@@ -19,7 +19,7 @@ message = "AGENT WAS HERE: z=$z, x=$x — but nothing ran yet"
 # ╔═╡ c1000001-0000-4000-8000-000000000001
 # slow + unpredictable: nobody can know this value without running it
 r1 = begin
-	sleep(8)
+	sleep(1)
 	rand(1:1000)
 end
 
