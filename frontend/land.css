@@ -35,6 +35,20 @@ body {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+    /* never scroll the column itself — that clips the cards' rings and shadows.
+       The tree card scrolls internally; the running list has its own cap. */
+    overflow: visible;
+    min-height: 0;
+}
+
+#land > aside > header,
+#land > aside > section.running,
+#land > aside > footer {
+    flex-shrink: 0;
+}
+
+#land section.running ul {
+    max-height: 9rem;
     overflow-y: auto;
 }
 
@@ -174,6 +188,7 @@ body.resizing #frames iframe {
 
 #land > aside section.files {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
 }
 
