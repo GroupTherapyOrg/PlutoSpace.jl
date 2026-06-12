@@ -219,6 +219,11 @@ body {
     flex-shrink: 0;
 }
 
+/* no tabs → no strip; the editor card top-aligns with the sidebar */
+#tabs.empty {
+    display: none;
+}
+
 #tabs .tab {
     display: flex;
     align-items: center;
