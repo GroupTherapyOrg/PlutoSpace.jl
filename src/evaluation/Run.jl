@@ -353,6 +353,7 @@ function set_output!(cell::Cell, run, expr_cache::ExprAnalysisCache; persist_js_
 	
 	cell.runtime = run.runtime
 	cell.errored = run.errored
+	cell.output_text = String(get(run, :text_repr, ""))
 	cell.running = cell.queued = false
 	# the output now reflects the current code, and the cell's variables now exist in this workspace
 	cell.stale = false

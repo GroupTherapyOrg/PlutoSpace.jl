@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# pluto-collab — talk to a LIVE Pluto server from any terminal.
+# pluto-collab — talk to a LIVE PlutoLand server from any terminal.
 #
 # Lets external tools (you, a coding agent, a script) read notebook state and run cells
 # in the same live session that the browser is connected to. Both sides see each other's
 # runs in real time. Edit the notebook .jl file directly to change code — in lazy mode
-# (Pluto.run(on_code_change="lazy")) edits mark cells stale instead of running them;
+# (PlutoLand's default) edits mark cells stale instead of running them;
 # this tool is how you run them.
 #
-# Dependencies: curl, sed. Discovery via the connection files that every running Pluto
+# Dependencies: curl, sed. Discovery via the connection files that every running PlutoLand
 # server writes to $XDG_STATE_HOME/pluto/servers/<port>.json (like Jupyter kernels).
 #
 # Commands:
-#   pluto-collab servers                          list live Pluto servers
+#   pluto-collab servers                          list live PlutoLand servers
 #   pluto-collab notebooks                        list open notebooks on all live servers
 #   pluto-collab status <notebook.jl> [--json]    per-cell state: stale / cold / errored / output
 #   pluto-collab run <notebook.jl> --stale        run all stale cells (and their dependents)
@@ -85,7 +85,7 @@ EOF
 
 require_server() {
     found=$(find_server_for "$1") || {
-        err "no live Pluto server has '$1' open."
+        err "no live PlutoLand server has '$1' open."
         err "start one with:  julia -e 'import PlutoLand; PlutoLand.run(notebook=\"$1\")'"
         exit 2
     }

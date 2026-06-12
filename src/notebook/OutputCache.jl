@@ -61,7 +61,10 @@ function _text_representation(cell::Cell)::String
     elseif body isa Vector{UInt8}
         "[binary output: $(cell.output.mime), $(length(body)) bytes]"
     elseif body isa Dict
-        "[rich output: $(cell.output.mime) — open in Pluto, or unpack output_packed]"
+        # rich (tree/table) output: use the plain-text repr captured in the worker
+        isempty(cell.output_text) ?
+            "[rich output: $(cell.output.mime) — open in Pluto, or unpack output_packed]" :
+            first(cell.output_text, TEXT_REPRESENTATION_LIMIT)
     else
         ""
     end
@@ -142,6 +145,7 @@ function load_output_cache!(notebook::Notebook)::Bool
                     po isa Dict ? Dict{String,Any}(po) : Dict{String,Any}()
                 end
             end
+            haskey(entry, "text_representation") && isempty(cell.output_text) && (cell.output_text = entry["text_representation"])
             cell.workspace_cold = true
         catch e
             @debug "Skipping unreadable cache entry" cell.cell_id exception = e

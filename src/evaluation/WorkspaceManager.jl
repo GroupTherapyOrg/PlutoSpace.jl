@@ -482,6 +482,7 @@ function workspace_exception_result(ex::Union{Base.IOError, Malt.TerminatedWorke
         runtime=nothing,
         published_objects=Dict{String,Any}(),
         has_pluto_hook_features=false,
+        text_repr="",
     )
 end
 
@@ -498,6 +499,7 @@ function workspace_exception_result(ex::Exception, workspace::Workspace)
             runtime=nothing,
             published_objects=Dict{String,Any}(),
             has_pluto_hook_features=false,
+            text_repr="",
         )
     else
         @error "Unkown error during eval_format_fetch_in_workspace" ex
@@ -509,6 +511,7 @@ function workspace_exception_result(ex::Exception, workspace::Workspace)
             runtime=nothing,
             published_objects=Dict{String,Any}(),
             has_pluto_hook_features=false,
+            text_repr="",
         )
     end
 end

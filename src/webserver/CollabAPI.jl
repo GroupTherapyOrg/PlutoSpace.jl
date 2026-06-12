@@ -1,5 +1,5 @@
 ###
-# The collab HTTP API: how external tools (coding agents, scripts, CI) talk to a LIVE Pluto server.
+# The collab HTTP API: how external tools (coding agents, scripts, CI) talk to a LIVE PlutoLand server.
 #
 # Design constraints (deliberate):
 #  - Plain HTTP + the existing Pluto secret for auth (`?secret=...` or cookie) — curl-able from

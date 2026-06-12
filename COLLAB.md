@@ -1,6 +1,6 @@
-# Collaborative Pluto: humans and agents on one live notebook
+# PlutoLand collaboration: humans and agents on one live notebook
 
-This fork adds **lazy reactive mode** to Pluto: a human in the browser and any number of
+PlutoLand's **lazy reactive mode** (the default): a human in the browser and any number of
 external tools (coding agents, scripts, CI) work on the **same live notebook session** —
 same kernel, same state, both sides see everything in real time — using nothing but
 **files, plain HTTP, and a tiny CLI**. No MCP servers, no plugins, no agent integrations:
@@ -9,11 +9,11 @@ any tool that can edit a file and run `curl` already works.
 ## Start
 
 ```julia
-import Pluto
-Pluto.run(on_code_change="lazy")
+import PlutoLand
+PlutoLand.run()        # lazy collab mode is the default
 ```
 
-That's the whole setup. `on_code_change="lazy"` changes three things:
+(or `plutoland` from a terminal, once installed as an app). Lazy mode means three things:
 
 1. **Edits mark cells stale instead of running them.** When the notebook `.jl` file changes
    on disk (lazy mode watches it automatically), the edited cells get the familiar yellow
@@ -71,7 +71,7 @@ itself on demand.
 ## The agent workflow (any agent, any terminal)
 
 ```text
-1. (human)  julia -e 'import Pluto; Pluto.run(on_code_change="lazy", notebook="nb.jl")'
+1. (human)  plutoland nb.jl
 2. (agent)  edits nb.jl with its normal file tools         ← human sees cells go stale, live
 3. (agent)  pluto-collab status nb.jl                      ← sees exactly what's stale
 4. (agent)  pluto-collab run nb.jl --stale                 ← human watches cells run, live
@@ -101,7 +101,7 @@ Notebooks (`*.jl` with Pluto cell markers) may be OPEN in a live lazy-mode Pluto
 
 ## Compatibility
 
-- Default mode (`on_code_change="autorun"`) is byte-for-byte vanilla Pluto behavior.
+- `--autorun` / `on_code_change="autorun"` is byte-for-byte vanilla Pluto behavior.
 - Notebook files stay fully compatible with upstream Pluto in both directions.
 - The sidecar and connection files are pure caches/metadata — safe to delete at any time.
 

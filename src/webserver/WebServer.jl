@@ -156,7 +156,7 @@ function run!(session::ServerSession)
 
     on_shutdown() = @sync begin
         # Triggered by HTTP.jl
-        @info("\nClosing Pluto... Restart Julia for a fresh session. \n\nHave a nice day! 🎈\n\n")
+        @info("\nClosing PlutoLand... Restart Julia for a fresh session. \n\nHave a nice day! 🎈🏝\n\n")
         remove_collab_registry_file(port)
         # TODO: put do_work tokens back
         @async swallow_exception(() -> close(serversocket), Base.IOError)

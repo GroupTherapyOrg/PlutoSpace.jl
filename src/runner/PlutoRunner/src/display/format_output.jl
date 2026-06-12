@@ -14,7 +14,7 @@ const table_column_display_limit_increase = 30
 const tree_display_extra_items = Dict{UUID,Dict{ObjectDimPair,Int64}}() # this is Int64 on 32 bit computers as well
 
 # This is not a struct to make it easier to pass these objects between processes.
-const FormattedCellResult = NamedTuple{(:output_formatted, :errored, :interrupted, :process_exited, :runtime, :published_objects, :has_pluto_hook_features),Tuple{PlutoRunner.MimedOutput,Bool,Bool,Bool,Union{UInt64,Nothing},Dict{String,Any},Bool}}
+const FormattedCellResult = NamedTuple{(:output_formatted, :errored, :interrupted, :process_exited, :runtime, :published_objects, :has_pluto_hook_features, :text_repr),Tuple{PlutoRunner.MimedOutput,Bool,Bool,Bool,Union{UInt64,Nothing},Dict{String,Any},Bool,String}}
 
 function formatted_result_of(
     notebook_id::UUID, 
@@ -57,6 +57,19 @@ function formatted_result_of(
         ("", MIME"text/plain"())
     end
 
+    # a plain-text view of the ACTUAL value, captured at the source for external tools
+    # (agents, the cache sidecar) — so rich outputs don't need to be reverse-engineered
+    text_repr = if errored || ends_with_semicolon
+        ""
+    else
+        try
+            s = sprint(io -> show(IOContext(io, :limit => true, :displaysize => (30, 110), :module => workspace), MIME"text/plain"(), ans))
+            length(s) > 20_000 ? first(s, 20_000) * "…" : s
+        catch
+            ""
+        end
+    end
+
     published_objects = get(cell_published_objects, cell_id, Dict{String,Any}())
 
     for k in known_published_objects
@@ -73,6 +86,7 @@ function formatted_result_of(
         runtime = get(cell_runtimes, cell_id, nothing),
         published_objects,
         has_pluto_hook_features,
+        text_repr,
     )
 end
 

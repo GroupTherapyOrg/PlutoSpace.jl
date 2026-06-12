@@ -21,6 +21,18 @@ import PlutoLand: Pluto, Notebook, ServerSession, SessionActions, Cell, update_r
     @test notebook.cells[3].output.body == "4"
     rand_output = notebook.cells[4].output.body
 
+    @testset "rich (tree) outputs get readable text for agents" begin
+        # a Vector renders as Pluto's tree object — output_text/sidecar must still be readable
+        nb_v = SessionActions.new(🍭; run_async=false)
+        write(nb_v.path, sprint(Pluto.save_notebook, Notebook([Cell("v = [10, 20, 30]")])))
+        @test Pluto.update_from_file(🍭, nb_v)
+        txt = Pluto._text_representation(nb_v.cells[1])
+        @test occursin("10", txt) && occursin("20", txt) && occursin("30", txt)
+        @test !occursin("unpack output_packed", txt)
+        SessionActions.shutdown(🍭, nb_v; async=false)
+        rm(nb_v.path * Pluto.OUTPUT_CACHE_SUFFIX; force=true)
+    end
+
     @testset "sidecar is written after a run" begin
         @test isfile(cache_path)
         data = read(cache_path, String)
