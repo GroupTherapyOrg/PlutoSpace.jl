@@ -361,6 +361,8 @@ body.resizing #frames iframe {
 
 #frames {
     flex: 1;
+    min-width: 0;
+    min-height: 0;
     position: relative;
     border-radius: 0.8rem;
     overflow: hidden;
@@ -619,20 +621,49 @@ body.resizing #frames iframe {
     color: rgb(var(--error-color, 240, 168, 168));
 }
 
-/* ---- the integrated terminal panel ---- */
+/* ---- the integrated terminal panel (dockable: bottom or right) ---- */
+
+.main-split {
+    flex: 1;
+    display: flex;
+    gap: 0.6rem;
+    min-height: 0;
+    min-width: 0;
+}
+
+.main-split.bottom {
+    flex-direction: column;
+}
+
+.main-split.right {
+    flex-direction: row;
+}
 
 #terminal-resizer {
-    height: 6px;
-    margin: -0.3rem 0;
     flex-shrink: 0;
-    cursor: row-resize;
     border-radius: 1000px;
     transition: background-color 0.1s linear;
+}
+
+.main-split.bottom > #terminal-resizer {
+    height: 6px;
+    margin: -0.3rem 0;
+    cursor: row-resize;
+}
+
+.main-split.right > #terminal-resizer {
+    width: 6px;
+    margin: 0 -0.3rem;
+    cursor: col-resize;
 }
 
 #terminal-resizer:hover {
     background-color: var(--cm-color-builtin, #5e7be1);
     opacity: 0.5;
+}
+
+.terminal-toggle.dock-toggle {
+    padding: 0.35rem 0.55rem;
 }
 
 body.resizing-v,

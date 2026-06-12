@@ -235,6 +235,8 @@ const Land = () => {
     const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutoland sidebar hidden") === "true")
     const [terminal_open, set_terminal_open] = useState(() => localStorage.getItem("plutoland terminal open") === "true")
     const [terminal_height, set_terminal_height] = useState(() => Number(localStorage.getItem("plutoland terminal height")) || 280)
+    const [terminal_width, set_terminal_width] = useState(() => Number(localStorage.getItem("plutoland terminal width")) || 420)
+    const [terminal_dock, set_terminal_dock] = useState(() => (localStorage.getItem("plutoland terminal dock") === "right" ? "right" : "bottom"))
     const terminal_ever_opened = useRef(false)
     if (terminal_open) terminal_ever_opened.current = true
     const auto_tabbed = useRef(false)
@@ -244,20 +246,30 @@ const Land = () => {
         localStorage.setItem("plutoland sidebar hidden", String(sidebar_hidden))
         localStorage.setItem("plutoland terminal open", String(terminal_open))
         localStorage.setItem("plutoland terminal height", String(terminal_height))
-    }, [sidebar_width, sidebar_hidden, terminal_open, terminal_height])
+        localStorage.setItem("plutoland terminal width", String(terminal_width))
+        localStorage.setItem("plutoland terminal dock", terminal_dock)
+    }, [sidebar_width, sidebar_hidden, terminal_open, terminal_height, terminal_width, terminal_dock])
 
-    const start_terminal_resize = useCallback((e) => {
-        e.preventDefault()
-        document.body.classList.add("resizing-v")
-        const move = (ev) => set_terminal_height(Math.max(120, Math.min(window.innerHeight - 220, window.innerHeight - ev.clientY - 12)))
-        const up = () => {
-            document.body.classList.remove("resizing-v")
-            window.removeEventListener("pointermove", move)
-            window.removeEventListener("pointerup", up)
-        }
-        window.addEventListener("pointermove", move)
-        window.addEventListener("pointerup", up)
-    }, [])
+    const start_terminal_resize = useCallback(
+        (e) => {
+            e.preventDefault()
+            const vertical = terminal_dock === "bottom"
+            document.body.classList.add(vertical ? "resizing-v" : "resizing")
+            const move = (ev) =>
+                vertical
+                    ? set_terminal_height(Math.max(120, Math.min(window.innerHeight - 220, window.innerHeight - ev.clientY - 12)))
+                    : set_terminal_width(Math.max(240, Math.min(window.innerWidth - 420, window.innerWidth - ev.clientX - 12)))
+            const up = () => {
+                document.body.classList.remove("resizing-v")
+                document.body.classList.remove("resizing")
+                window.removeEventListener("pointermove", move)
+                window.removeEventListener("pointerup", up)
+            }
+            window.addEventListener("pointermove", move)
+            window.addEventListener("pointerup", up)
+        },
+        [terminal_dock]
+    )
 
     const add_tab = useCallback((id, path) => {
         set_tabs((tabs) => (tabs.some((t) => t.id === id) ? tabs : [...tabs, { id, path }]))
@@ -411,27 +423,46 @@ const Land = () => {
                     <div class="tab-spacer"></div>
                     <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${() =>
         set_terminal_open(!terminal_open)}>⌨ Terminal</button>
+                    ${terminal_open
+                        ? html`<button
+                              class="terminal-toggle dock-toggle"
+                              title=${terminal_dock === "bottom" ? "Dock terminal to the right" : "Dock terminal to the bottom"}
+                              onClick=${() => set_terminal_dock(terminal_dock === "bottom" ? "right" : "bottom")}
+                          >
+                              ${terminal_dock === "bottom" ? "◨" : "⬓"}
+                          </button>`
+                        : null}
                 </nav>
-                <div id="frames">
-                    ${tabs.map(
-                        // every tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
-                        (t) => html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
-                    )}
-                    ${tabs.length === 0
-                        ? html`<div class="empty-state">
-                              <p>Open a notebook from the workspace on the left, or create a new one.</p>
-                              <p class="hint">Agents can work here too: edit any notebook file, or use <code>pluto-collab</code>.</p>
-                          </div>`
+                <div class="main-split ${terminal_dock}">
+                    <div id="frames">
+                        ${tabs.map(
+                            // every tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
+                            (t) => html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
+                        )}
+                        ${tabs.length === 0
+                            ? html`<div class="empty-state">
+                                  <p>Open a notebook from the workspace on the left, or create a new one.</p>
+                                  <p class="hint">Agents can work here too: edit any notebook file, or use <code>pluto-collab</code>.</p>
+                              </div>`
+                            : null}
+                    </div>
+                    ${terminal_ever_opened.current
+                        ? html`
+                              <div id="terminal-resizer" style=${terminal_open ? "" : "display: none"} onPointerDown=${start_terminal_resize}></div>
+                              <div
+                                  id="terminal-panel"
+                                  class="bubble"
+                                  style=${terminal_open
+                                      ? terminal_dock === "bottom"
+                                          ? `height: ${terminal_height}px`
+                                          : `width: ${terminal_width}px`
+                                      : "display: none"}
+                              >
+                                  <${TerminalPanel} visible=${terminal_open} />
+                              </div>
+                          `
                         : null}
                 </div>
-                ${terminal_ever_opened.current
-                    ? html`
-                          <div id="terminal-resizer" style=${terminal_open ? "" : "display: none"} onPointerDown=${start_terminal_resize}></div>
-                          <div id="terminal-panel" class="bubble" style=${terminal_open ? `height: ${terminal_height}px` : "display: none"}>
-                              <${TerminalPanel} visible=${terminal_open} />
-                          </div>
-                      `
-                    : null}
             </main>
             ${error == null ? null : html`<div id="land-error">${error}</div>`}
         </div>
