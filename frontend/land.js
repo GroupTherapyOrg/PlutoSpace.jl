@@ -426,44 +426,6 @@ const Land = () => {
         [add_tab]
     )
 
-    const create_in = useCallback(
-        async (dir) => {
-            const name = prompt(`New file in ${dir.split("/").pop()}/ — a name ending in .jl becomes a Pluto notebook:`, "notebook.jl")
-            if (name == null || name.trim() === "") return
-            const path = `${dir}/${name.trim()}`
-            try {
-                if (name.trim().endsWith(".jl")) {
-                    const id = await get_text("./new", { method: "POST" })
-                    await get_text(`./move?id=${encodeURIComponent(id)}&newpath=${encodeURIComponent(path)}`, { method: "POST" })
-                    add_tab(id, path)
-                } else {
-                    await get_json(`./api/v1/file/new?path=${encodeURIComponent(path)}`, { method: "POST" })
-                    open_file(path)
-                }
-                refresh()
-            } catch (e) {
-                set_error(String(e))
-            }
-        },
-        [add_tab, open_file, refresh]
-    )
-
-    const delete_entry = useCallback(
-        async (entry) => {
-            const what = entry.type === "notebook" ? "notebook (it will be shut down if running; its output cache is deleted too)" : "file"
-            if (!confirm(`Delete ${entry.name}?\n\nThis permanently deletes the ${what}. There is no trash.`)) return
-            try {
-                await get_json(`./api/v1/file/delete?path=${encodeURIComponent(entry.path)}`, { method: "POST" })
-                // close any tab showing it
-                set_tabs((tabs) => tabs.filter((t) => t.path !== entry.path))
-                file_dirty.delete(entry.path)
-                refresh()
-            } catch (e) {
-                set_error(String(e))
-            }
-        },
-        [refresh]
-    )
 
     const refresh = useCallback(async () => {
         try {
@@ -569,6 +531,45 @@ const Land = () => {
             await refresh()
         },
         [running, refresh]
+    )
+
+    const create_in = useCallback(
+        async (dir) => {
+            const name = prompt(`New file in ${dir.split("/").pop()}/ — a name ending in .jl becomes a Pluto notebook:`, "notebook.jl")
+            if (name == null || name.trim() === "") return
+            const path = `${dir}/${name.trim()}`
+            try {
+                if (name.trim().endsWith(".jl")) {
+                    const id = await get_text("./new", { method: "POST" })
+                    await get_text(`./move?id=${encodeURIComponent(id)}&newpath=${encodeURIComponent(path)}`, { method: "POST" })
+                    add_tab(id, path)
+                } else {
+                    await get_json(`./api/v1/file/new?path=${encodeURIComponent(path)}`, { method: "POST" })
+                    open_file(path)
+                }
+                refresh()
+            } catch (e) {
+                set_error(String(e))
+            }
+        },
+        [add_tab, open_file, refresh]
+    )
+
+    const delete_entry = useCallback(
+        async (entry) => {
+            const what = entry.type === "notebook" ? "notebook (it will be shut down if running; its output cache is deleted too)" : "file"
+            if (!confirm(`Delete ${entry.name}?\n\nThis permanently deletes the ${what}. There is no trash.`)) return
+            try {
+                await get_json(`./api/v1/file/delete?path=${encodeURIComponent(entry.path)}`, { method: "POST" })
+                // close any tab showing it
+                set_tabs((tabs) => tabs.filter((t) => t.path !== entry.path))
+                file_dirty.delete(entry.path)
+                refresh()
+            } catch (e) {
+                set_error(String(e))
+            }
+        },
+        [refresh]
     )
 
     const shutdown_notebook = useCallback(
