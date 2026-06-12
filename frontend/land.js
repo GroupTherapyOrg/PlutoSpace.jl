@@ -109,7 +109,8 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
     return html`<div class="workspace-opener">
         <div class="bubble opener-card">
             <header>
-                <h1>Pluto<span class="land-accent">Land</span> <span class="balloon">🎈</span></h1>
+                <img class="land-logo opener-logo" src="img/plutoland.svg" alt="PlutoLand" />
+                <h1>Pluto<span class="land-accent">Land</span></h1>
                 <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
                 ${on_cancel == null ? null : html`<button class="opener-cancel" title="Back to the current workspace" onClick=${on_cancel}>← back</button>`}
             </header>
@@ -412,10 +413,17 @@ const Land = () => {
                 ? html`<button id="sidebar-reopen" title="Show sidebar" onClick=${() => set_sidebar_hidden(false)}>☰</button>`
                 : html`<aside style=${`width: ${sidebar_width}px`}>
                 <header class="bubble">
-                    <h1>Pluto<span class="land-accent">Land</span></h1>
-                    <p class="workspace-root" title=${workspace?.root ?? ""}>${workspace == null ? "loading…" : basename(workspace.root)}</p>
-                    <button class="workspace-switch" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>
-                    <button class="sidebar-hide" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}>⟨</button>
+                    <div class="header-row">
+                        <img class="land-logo" src="img/plutoland.svg" alt="PlutoLand" />
+                        <div class="header-text">
+                            <h1>Pluto<span class="land-accent">Land</span></h1>
+                            <p class="workspace-root" title=${workspace?.root ?? ""}>${workspace == null ? "loading…" : basename(workspace.root)}</p>
+                        </div>
+                        <div class="header-buttons">
+                            <button class="header-button" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>
+                            <button class="header-button" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}>⟨</button>
+                        </div>
+                    </div>
                 </header>
                 <section class="files bubble">
                     <h2>Workspace</h2>

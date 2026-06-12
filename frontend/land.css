@@ -62,44 +62,41 @@ body.resizing #frames iframe {
     pointer-events: none;
 }
 
-#land > aside header.bubble {
-    position: relative;
+#land .header-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
 }
 
-#land .workspace-switch {
-    position: absolute;
-    top: 0.7rem;
-    right: 2.7rem;
+#land .header-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.land-logo {
+    width: 2.4rem;
+    height: 2.4rem;
+    flex-shrink: 0;
+}
+
+#land .header-buttons {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.1rem;
+}
+
+#land .header-button {
     background: none;
     border: none;
     color: inherit;
     font: inherit;
     opacity: 0.5;
     cursor: pointer;
-    padding: 0.15rem 0.5rem;
+    padding: 0.15rem 0.45rem;
     border-radius: 1000px;
 }
 
-#land .workspace-switch:hover {
-    opacity: 1;
-    background-color: var(--main-bg-color);
-}
-
-#land .sidebar-hide {
-    position: absolute;
-    top: 0.7rem;
-    right: 0.7rem;
-    background: none;
-    border: none;
-    color: inherit;
-    font: inherit;
-    opacity: 0.4;
-    cursor: pointer;
-    padding: 0.15rem 0.5rem;
-    border-radius: 1000px;
-}
-
-#land .sidebar-hide:hover {
+#land .header-button:hover {
     opacity: 1;
     background-color: var(--main-bg-color);
 }
@@ -480,8 +477,10 @@ body.resizing #frames iframe {
     opacity: 0.55;
 }
 
-.opener-card .balloon {
-    font-size: 1.4rem;
+.opener-card .opener-logo {
+    width: 4.2rem;
+    height: 4.2rem;
+    margin-bottom: 0.4rem;
 }
 
 .opener-card .subtitle {
