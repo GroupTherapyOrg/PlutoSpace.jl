@@ -1,21 +1,8 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- PlutoLand: Pluto's exact three-circle mark, standing at the water's edge.
-     Nothing added — the place is implied by the reflection. Circle geometry and
-     colors are identical to Pluto's logo.svg / favicon.svg. -->
+<!-- PlutoLand: the same three circles as Pluto's mark (identical fills, strokes, radii,
+     and overlap ratio) — rearranged from a floating stack into a mound. The dots, landed. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" width="132" height="132">
-  <!-- the Pluto mark -->
-  <circle cx="66" cy="73" r="13.5" fill="#d66661" stroke="#c93d39" stroke-width="3"/>
-  <circle cx="66" cy="46" r="13.5" fill="#aa7dc0" stroke="#945bb0" stroke-width="3"/>
-  <circle cx="66" cy="19" r="13.5" fill="#6bab5b" stroke="#3b972e" stroke-width="3"/>
-  <!-- the waterline -->
-  <line x1="22" y1="91" x2="110" y2="91" stroke="#7fb8d8" stroke-width="3.5" stroke-linecap="round"/>
-  <!-- the reflection: the same mark, softened by water -->
-  <g opacity="0.38">
-    <ellipse cx="66" cy="103" rx="12.5" ry="6.5" fill="#d66661"/>
-    <ellipse cx="66" cy="117" rx="11" ry="5" fill="#aa7dc0" opacity="0.65"/>
-    <ellipse cx="66" cy="128" rx="9" ry="3.5" fill="#6bab5b" opacity="0.4"/>
-  </g>
-  <!-- two quiet ripples -->
-  <path d="M 30 101 q 6 3 13 3" fill="none" stroke="#7fb8d8" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-  <path d="M 102 99 q -5 3 -11 3" fill="none" stroke="#7fb8d8" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <circle cx="54" cy="84" r="16.5" fill="#aa7dc0" stroke="#945bb0" stroke-width="3"/>
+  <circle cx="78" cy="84" r="16.5" fill="#d66661" stroke="#c93d39" stroke-width="3"/>
+  <circle cx="66" cy="63" r="16.5" fill="#6bab5b" stroke="#3b972e" stroke-width="3"/>
 </svg>
