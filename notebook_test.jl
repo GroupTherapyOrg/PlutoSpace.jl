@@ -14,7 +14,7 @@ y = x * 5
 z = y + x
 
 # ╔═╡ b2c3d4e5-0000-4000-8000-abcdef012345
-message = "AGENT WAS HERE: z=$z, x=$x — but nothing ran yet"
+message = "agent edit #3: z=$z while x=$x — watch me go gold first"
 
 # ╔═╡ c1000001-0000-4000-8000-000000000001
 # slow + unpredictable: nobody can know this value without running it
@@ -27,7 +27,7 @@ end
 # also slow, also unpredictable
 r2 = begin
 	sleep(6)
-	round(randn() * 500; digits=2)
+	round(randn() * 500; digits=1)
 end
 
 # ╔═╡ c1000003-0000-4000-8000-000000000003
@@ -41,6 +41,9 @@ summary = uppercase("totals: $total // r2 came out $verdict ($r2)")
 
 # ╔═╡ d4000001-0000-4000-8000-00000000000d
 report = "x is now $x · total=$total · message says: $message"
+
+# ╔═╡ e5000001-0000-4000-8000-00000000000e
+dice = "🎲 lucky number: $(mod(r1 + round(Int, abs(r2)), 100)) (from r1=$r1, r2=$r2)"
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -69,5 +72,6 @@ project_hash = "71853c6197a6a7f222db0f1978c7cb232b87c5ee"
 # ╠═c1000004-0000-4000-8000-000000000004
 # ╠═c1000005-0000-4000-8000-000000000005
 # ╠═d4000001-0000-4000-8000-00000000000d
+# ╠═e5000001-0000-4000-8000-00000000000e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

@@ -24,3 +24,5 @@ profile.pb.gz
 
 test/snapshots
 .claude/worktrees/
+# collab output cache sidecars (pure caches — see COLLAB.md)
+*.pluto-cache.toml
