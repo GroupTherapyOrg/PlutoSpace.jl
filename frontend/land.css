@@ -130,12 +130,12 @@ body.resizing #frames iframe {
     font: inherit;
     padding: 0.35rem 0.7rem;
     border-radius: 1000px;
-    box-shadow: -2px 4px 9px 0px #00000012;
+    box-shadow: 0 0 0 1px var(--rule-color), -2px 5px 14px 0px #00000022;
     cursor: pointer;
 }
 
 #sidebar-reopen:hover {
-    box-shadow: -2px 5px 12px 0px #0000001f;
+    box-shadow: 0 0 0 1px var(--rule-color), -2px 6px 16px 0px #00000030;
 }
 
 .bubble {
@@ -297,14 +297,14 @@ body.resizing #frames iframe {
     border-radius: 1000px;
     border: none;
     background-color: var(--code-background);
-    box-shadow: -2px 4px 9px 0px #00000012;
+    box-shadow: 0 0 0 1px var(--rule-color), -2px 5px 14px 0px #00000022;
     color: inherit;
     cursor: pointer;
     transition: box-shadow 0.08s linear, transform 0.08s linear;
 }
 
 .new-notebook:hover {
-    box-shadow: -2px 5px 12px 0px #0000001f;
+    box-shadow: 0 0 0 1px var(--rule-color), -2px 6px 16px 0px #00000030;
     transform: translateY(-1px);
 }
 
@@ -637,13 +637,13 @@ body.resizing #frames iframe {
     border-radius: 0.6rem;
     padding: 0.7rem 0.85rem;
     cursor: pointer;
-    box-shadow: -2px 4px 9px 0px #00000012;
+    box-shadow: 0 0 0 1px var(--rule-color), -2px 5px 14px 0px #00000022;
     transition: box-shadow 0.08s linear, transform 0.08s linear;
     overflow: hidden;
 }
 
 .recent-card:hover {
-    box-shadow: -2px 5px 12px 0px #0000001f;
+    box-shadow: 0 0 0 1px var(--rule-color), -2px 6px 16px 0px #00000030;
     transform: translateY(-1px);
 }
 
