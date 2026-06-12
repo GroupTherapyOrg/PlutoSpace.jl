@@ -238,6 +238,51 @@ body.resizing #frames iframe {
     opacity: 1;
 }
 
+/* tree rows: the entry + a hover-revealed action button */
+.entry-row {
+    display: flex;
+    align-items: center;
+}
+
+.entry-row .entry {
+    flex: 1;
+    min-width: 0;
+}
+
+.row-action {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.1rem 0.45rem;
+    border-radius: 1000px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.08s linear, background-color 0.08s linear;
+}
+
+.entry-row:hover .row-action,
+#land h2 .row-action.h2-action {
+    opacity: 0.45;
+}
+
+.row-action:hover {
+    opacity: 1 !important;
+    background-color: var(--main-bg-color);
+}
+
+.row-action.danger:hover {
+    color: rgb(var(--error-color, 240, 168, 168));
+}
+
+#land h2 .row-action.h2-action {
+    font-size: 0.9rem;
+    padding: 0 0.4rem;
+    margin-left: 0.2rem;
+}
+
 .icon {
     display: inline-block;
     width: 1.1em;

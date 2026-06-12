@@ -37,29 +37,44 @@ const remember_workspace = (path) => {
     localStorage.setItem(RECENT_KEY, JSON.stringify([path, ...get_recent_workspaces().filter((p) => p !== path)].slice(0, 8)))
 }
 
-const FileEntry = ({ entry, on_open_notebook, on_open_file, depth }) => {
+const FileEntry = ({ entry, on_open_notebook, on_open_file, on_create_in, on_delete, depth }) => {
     const [open, set_open] = useState(false)
     if (entry.type === "dir") {
         return html`<li class="dir ${open ? "open" : ""}">
-            <button class="entry" onClick=${() => set_open(!open)}><span class="icon chevron"></span>${entry.name}</button>
+            <div class="entry-row">
+                <button class="entry" onClick=${() => set_open(!open)}><span class="icon chevron"></span>${entry.name}</button>
+                <button class="row-action" title="New notebook or file in ${entry.name}/" onClick=${() => on_create_in(entry.path)}>+</button>
+            </div>
             ${open
                 ? html`<ul>
                       ${entry.children.map(
-                          (c) => html`<${FileEntry} key=${c.path} entry=${c} on_open_notebook=${on_open_notebook} on_open_file=${on_open_file} depth=${depth + 1} />`
+                          (c) =>
+                              html`<${FileEntry}
+                                  key=${c.path}
+                                  entry=${c}
+                                  on_open_notebook=${on_open_notebook}
+                                  on_open_file=${on_open_file}
+                                  on_create_in=${on_create_in}
+                                  on_delete=${on_delete}
+                                  depth=${depth + 1}
+                              />`
                       )}
                   </ul>`
                 : null}
         </li>`
     }
-    if (entry.type === "notebook") {
-        return html`<li class="notebook">
-            <button class="entry" title=${entry.path} onClick=${() => on_open_notebook(entry.path)}>
-                <span class="icon pluto-dot"></span>${entry.name}
+    const is_notebook = entry.type === "notebook"
+    return html`<li class=${is_notebook ? "notebook" : "file"}>
+        <div class="entry-row">
+            <button
+                class="entry ${is_notebook ? "" : "quiet"}"
+                title=${entry.path}
+                onClick=${() => (is_notebook ? on_open_notebook(entry.path) : on_open_file(entry.path))}
+            >
+                <span class="icon ${is_notebook ? "pluto-dot" : ""}"></span>${entry.name}
             </button>
-        </li>`
-    }
-    return html`<li class="file">
-        <button class="entry quiet" title=${entry.path} onClick=${() => on_open_file(entry.path)}><span class="icon"></span>${entry.name}</button>
+            <button class="row-action danger" title="Delete ${entry.name}" onClick=${() => on_delete(entry)}>✕</button>
+        </div>
     </li>`
 }
 
@@ -411,6 +426,45 @@ const Land = () => {
         [add_tab]
     )
 
+    const create_in = useCallback(
+        async (dir) => {
+            const name = prompt(`New file in ${dir.split("/").pop()}/ — a name ending in .jl becomes a Pluto notebook:`, "notebook.jl")
+            if (name == null || name.trim() === "") return
+            const path = `${dir}/${name.trim()}`
+            try {
+                if (name.trim().endsWith(".jl")) {
+                    const id = await get_text("./new", { method: "POST" })
+                    await get_text(`./move?id=${encodeURIComponent(id)}&newpath=${encodeURIComponent(path)}`, { method: "POST" })
+                    add_tab(id, path)
+                } else {
+                    await get_json(`./api/v1/file/new?path=${encodeURIComponent(path)}`, { method: "POST" })
+                    open_file(path)
+                }
+                refresh()
+            } catch (e) {
+                set_error(String(e))
+            }
+        },
+        [add_tab, open_file, refresh]
+    )
+
+    const delete_entry = useCallback(
+        async (entry) => {
+            const what = entry.type === "notebook" ? "notebook (it will be shut down if running; its output cache is deleted too)" : "file"
+            if (!confirm(`Delete ${entry.name}?\n\nThis permanently deletes the ${what}. There is no trash.`)) return
+            try {
+                await get_json(`./api/v1/file/delete?path=${encodeURIComponent(entry.path)}`, { method: "POST" })
+                // close any tab showing it
+                set_tabs((tabs) => tabs.filter((t) => t.path !== entry.path))
+                file_dirty.delete(entry.path)
+                refresh()
+            } catch (e) {
+                set_error(String(e))
+            }
+        },
+        [refresh]
+    )
+
     const refresh = useCallback(async () => {
         try {
             const ws_response = await fetch("./api/v1/workspace")
@@ -558,12 +612,26 @@ const Land = () => {
                     </div>
                 </header>
                 <section class="files bubble">
-                    <h2>Workspace</h2>
+                    <h2>
+                        Workspace
+                        ${workspace == null
+                            ? null
+                            : html`<button class="row-action h2-action" title="New notebook or file in the workspace root" onClick=${() => create_in(workspace.root)}>+</button>`}
+                    </h2>
                     <ul class="tree">
                         ${workspace == null
                             ? null
                             : workspace.entries.map(
-                                  (e) => html`<${FileEntry} key=${e.path} entry=${e} on_open_notebook=${open_notebook} on_open_file=${open_file} depth=${0} />`
+                                  (e) =>
+                                      html`<${FileEntry}
+                                          key=${e.path}
+                                          entry=${e}
+                                          on_open_notebook=${open_notebook}
+                                          on_open_file=${open_file}
+                                          on_create_in=${create_in}
+                                          on_delete=${delete_entry}
+                                          depth=${0}
+                                      />`
                               )}
                     </ul>
                 </section>

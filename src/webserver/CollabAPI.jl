@@ -371,6 +371,44 @@ function register_collab_api!(router, session::ServerSession)
     end
     HTTP.register!(router, "POST", "/api/v1/file/save", serve_api_file_save)
 
+    function serve_api_file_new(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        haskey(query, "path") || return _api_error(400, "pass ?path=/abs/file", false)
+        path = tamepath(query["path"])
+        isfile(path) && return _api_error(409, "file already exists: $path", false)
+        isdir(dirname(path)) || return _api_error(400, "no such directory: $(dirname(path))", false)
+        try
+            write(path, "")
+        catch e
+            return _api_error(500, "could not create: $(sprint(showerror, e))", false)
+        end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], """{"ok": true}\n""")
+    end
+    HTTP.register!(router, "POST", "/api/v1/file/new", serve_api_file_new)
+
+    function serve_api_file_delete(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        haskey(query, "path") || return _api_error(400, "pass ?path=/abs/file", false)
+        path = tamepath(query["path"])
+        isfile(path) || return _api_error(404, "not a file: $path", false)
+        # if it's a notebook running in this session, shut it down first
+        for nb in collect(values(session.notebooks))
+            if isfile(nb.path) && realpath(nb.path) == realpath(path)
+                SessionActions.shutdown(session, nb; keep_in_session=false, async=false, verbose=false)
+            end
+        end
+        try
+            rm(path)
+            # a notebook's output cache goes with it
+            sidecar = path * OUTPUT_CACHE_SUFFIX
+            isfile(sidecar) && rm(sidecar)
+        catch e
+            return _api_error(500, "could not delete: $(sprint(showerror, e))", false)
+        end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], """{"ok": true}\n""")
+    end
+    HTTP.register!(router, "POST", "/api/v1/file/delete", serve_api_file_delete)
+
     function serve_api_interrupt(request::HTTP.Request)
         query = HTTP.queryparams(HTTP.URI(request.target))
         fmt_text = _api_wants_text(query)
