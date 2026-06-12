@@ -1,6 +1,6 @@
 using Test
-using Pluto
-using Pluto: update_run!, ServerSession, ClientSession, Cell, Notebook, set_disabled, is_disabled, WorkspaceManager
+using PlutoLand; import PlutoLand as Pluto
+using PlutoLand; import PlutoLand as Pluto: update_run!, ServerSession, ClientSession, Cell, Notebook, set_disabled, is_disabled, WorkspaceManager
 
 
 

@@ -10,7 +10,7 @@ function print_timeroutput()
     println()
 end
 
-@timeit TOUT "import Pluto" import Pluto
+@timeit TOUT "import PlutoLand as Pluto" import PlutoLand as Pluto
 using ExpressionExplorer
 using Sockets
 using Test

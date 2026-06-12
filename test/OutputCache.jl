@@ -1,5 +1,5 @@
 using Test
-import Pluto: Pluto, Notebook, ServerSession, SessionActions, Cell, update_run!
+import PlutoLand: Pluto, Notebook, ServerSession, SessionActions, Cell, update_run!
 
 @testset "Output cache sidecar" begin
     🍭 = ServerSession()

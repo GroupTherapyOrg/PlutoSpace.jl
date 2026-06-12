@@ -1,14 +1,19 @@
 """
-Start a notebook server using:
+PlutoLand 🟢🟣🔴 — a workspace for Pluto.jl notebooks, built for humans and agents together.
+
+Start it with:
 
 ```julia
-julia> Pluto.run()
+julia> PlutoLand.run()
 ```
 
-Have a look at the documentation:
-https://plutojl.org/en/docs/
+…then open a folder as your workspace. Built on (and fully compatible with) Pluto.jl.
 """
-module Pluto
+module PlutoLand
+
+# Everything inside is Pluto: the alias keeps every internal `Pluto.…` reference,
+# `import ..Pluto`, and user habit (`Pluto.run()`) working unchanged.
+const Pluto = PlutoLand
 
 if isdefined(Base, :Experimental) && isdefined(Base.Experimental, Symbol("@max_methods"))
     @eval Base.Experimental.@max_methods 1
@@ -101,6 +106,7 @@ export update_notebook_environment
 export activate_notebook_environment
 export will_use_pluto_pkg
 
+include("./cli.jl")
 include("./precompile.jl")
 
 const pluto_boot_environment_path = Ref{String}()
@@ -158,10 +164,10 @@ function __init__()
         if !isfile(fn)
             @info """
 
-              Welcome to Pluto $(PLUTO_VERSION_STR) 🎈
+              Welcome to PlutoLand $(PLUTO_VERSION_STR) 🎈🏝
               Start a notebook server using:
 
-            julia> Pluto.run()
+            julia> PlutoLand.run()
 
               Have a look at the FAQ:
               https://github.com/fonsp/Pluto.jl/wiki

@@ -1,6 +1,6 @@
-import Pluto.PkgCompat
-import Pluto
-import Pluto: update_save_run!, update_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell, project_relative_path, SessionActions, load_notebook
+import PlutoLand.PkgCompat
+import PlutoLand as Pluto
+import PlutoLand: update_save_run!, update_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell, project_relative_path, SessionActions, load_notebook
 using Test
 import Pkg
 import TOML

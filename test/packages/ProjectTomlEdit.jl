@@ -1,6 +1,6 @@
 
-using Pluto.WorkspaceManager: WorkspaceManager, poll
-using Pluto: Pluto, ServerSession, Notebook, Cell, update_save_run!, PkgCompat
+using PlutoLand.WorkspaceManager: WorkspaceManager, poll
+using PlutoLand; import PlutoLand as Pluto: Pluto, ServerSession, Notebook, Cell, update_save_run!, PkgCompat
 import TOML
 
 without_pluto_version(s) = replace(s, r"# v.*" => "")

@@ -1,6 +1,6 @@
 using Test
-import Pluto
-import Pluto: update_save_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell
+import PlutoLand as Pluto
+import PlutoLand: update_save_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell
 
 import UUIDs: UUID, uuid1
 
@@ -13,7 +13,7 @@ function stringify_keys(d::Dict)
 end
 stringify_keys(x::Any) = x
 
-import Pluto.Firebasey
+import PlutoLand.Firebasey
 
 
 function await_with_timeout(check::Function, timeout::Real=60.0, interval::Real=.05)

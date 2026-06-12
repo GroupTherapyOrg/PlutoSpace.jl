@@ -1,7 +1,7 @@
 using Test
-import Pluto: Configuration, Notebook, ServerSession, ClientSession, update_run!, Cell, WorkspaceManager, SessionActions, save_notebook
-import Pluto.Configuration: Options, EvaluationOptions
-using Pluto.WorkspaceManager: poll
+import PlutoLand: Configuration, Notebook, ServerSession, ClientSession, update_run!, Cell, WorkspaceManager, SessionActions, save_notebook
+import PlutoLand.Configuration: Options, EvaluationOptions
+using PlutoLand.WorkspaceManager: poll
 import Pkg
 
 
@@ -24,6 +24,7 @@ end
     🍭 = ServerSession()
     🍭.options.evaluation.workspace_use_distributed = false
     🍭.options.server.auto_reload_from_file = true
+    🍭.options.evaluation.on_code_change = "autorun" # this suite tests CLASSIC hot reload
     
     
     timeout_between_tests = 🍭.options.server.auto_reload_from_file_cooldown * 1.5

@@ -58,8 +58,8 @@ EOF
 
 start_server() {
     julia --project="$REPO" -e "
-        import Pluto
-        Pluto.run(
+        import PlutoLand
+        PlutoLand.run(
             port=$PORT,
             launch_browser=false,
             require_secret_for_open_links=true,

@@ -12,7 +12,7 @@ using InteractiveUtils
 # 1. add our test registry: 
 #   pkg> registry add https://github.com/JuliaPluto/PlutoPkgTestRegistry
 
-# 2. using Pluto, open the simple_import.jl notebook
+# 2. using PlutoLand; import PlutoLand as Pluto, open the simple_import.jl notebook
 
 # 3. add the `import Artifacts` cell
 

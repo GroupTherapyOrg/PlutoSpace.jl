@@ -1,5 +1,5 @@
-import Pluto: Pluto, Cell, ExpressionExplorerExtras
-import Pluto.MoreAnalysis
+import PlutoLand: Pluto, Cell, ExpressionExplorerExtras
+import PlutoLand.MoreAnalysis
 
 using Test
 

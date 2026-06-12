@@ -1,6 +1,6 @@
 using Test
 import UUIDs
-import Pluto: PlutoRunner, Notebook, WorkspaceManager, Cell, ServerSession, ClientSession, update_run!
+import PlutoLand: PlutoRunner, Notebook, WorkspaceManager, Cell, ServerSession, ClientSession, update_run!
 import Memoize: @memoize
 
 @testset "Macro analysis" begin

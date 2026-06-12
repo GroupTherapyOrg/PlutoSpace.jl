@@ -1,7 +1,7 @@
 import Pkg
 Pkg.activate(mktempdir())
 Pkg.develop(Pkg.PackageSpec(path=ARGS[1]))
-import Pluto
+import PlutoLand as Pluto
 s = Pluto.ServerSession()
 urls = [
     "https://raw.githubusercontent.com/fonsp/Pluto.jl/v0.12.16/sample/Basic.jl",

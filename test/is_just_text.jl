@@ -1,5 +1,5 @@
 using Test
-import Pluto: Notebook, Cell, updated_topology, static_resolve_topology, is_just_text, NotebookTopology
+import PlutoLand: Notebook, Cell, updated_topology, static_resolve_topology, is_just_text, NotebookTopology
 
 @testset "is_just_text" begin
     notebook = Notebook([

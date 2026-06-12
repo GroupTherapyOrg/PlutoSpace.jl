@@ -16,7 +16,7 @@
 ###
 
 const REMOTE_BOOTSTRAP_DIR = "~/.plutoland/Pluto.jl"
-const REMOTE_FORK_URL = "https://github.com/GroupTherapyOrg/Pluto.jl"
+const REMOTE_FORK_URL = "https://github.com/GroupTherapyOrg/PlutoLand.jl"
 const REMOTE_FORK_BRANCH = "collab"
 
 mutable struct RemoteSession
@@ -191,7 +191,7 @@ function _remote_connect_task!(r::RemoteSession)
 
             r.state = "starting"
             r.detail = "starting the PlutoLand server on $(r.host)"
-            _ssh_run(r.host, "nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'import Pluto; Pluto.run(launch_browser=false, on_code_change=\"lazy\")' > ~/.plutoland/server.log 2>&1 < /dev/null & disown; true")
+            _ssh_run(r.host, "nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'm = try Base.require(Main, :PlutoLand) catch; Base.require(Main, :Pluto) end; m.run(launch_browser=false)' > ~/.plutoland/server.log 2>&1 < /dev/null & disown; true")
             for _ in 1:90
                 sleep(2)
                 reg = try

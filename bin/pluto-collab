@@ -86,7 +86,7 @@ EOF
 require_server() {
     found=$(find_server_for "$1") || {
         err "no live Pluto server has '$1' open."
-        err "start one with:  julia -e 'import Pluto; Pluto.run(on_code_change=\"lazy\", notebook=\"$1\")'"
+        err "start one with:  julia -e 'import PlutoLand; PlutoLand.run(notebook=\"$1\")'"
         exit 2
     }
     BASE=${found%%	*}

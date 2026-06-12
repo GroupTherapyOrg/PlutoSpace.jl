@@ -1,10 +1,10 @@
 using HTTP
 using Test
-using Pluto
-using Pluto: ServerSession, ClientSession, SessionActions
-using Pluto.Configuration
-using Pluto.Configuration: notebook_path_suggestion, from_flat_kwargs, _convert_to_flags
-using Pluto.WorkspaceManager: poll
+using PlutoLand; import PlutoLand as Pluto
+using PlutoLand; import PlutoLand as Pluto: ServerSession, ClientSession, SessionActions
+using PlutoLand.Configuration
+using PlutoLand.Configuration: notebook_path_suggestion, from_flat_kwargs, _convert_to_flags
+using PlutoLand.WorkspaceManager: poll
 import URIs
 
 @testset "Configurations" begin

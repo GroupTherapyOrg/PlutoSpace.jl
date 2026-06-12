@@ -1,10 +1,10 @@
 # using LibGit2
 import Pkg
 using Test
-using Pluto.Configuration: CompilerOptions
-import Pluto: update_save_run!, update_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell, project_relative_path, SessionActions, load_notebook
-import Pluto.PkgUtils
-import Pluto.PkgCompat
+using PlutoLand.Configuration: CompilerOptions
+import PlutoLand: update_save_run!, update_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell, project_relative_path, SessionActions, load_notebook
+import PlutoLand.PkgUtils
+import PlutoLand.PkgCompat
 import Malt
 import TOML
 

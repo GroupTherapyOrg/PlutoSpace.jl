@@ -346,7 +346,7 @@ function register_collab_api!(router, session::ServerSession)
 
     function serve_api_workspace(request::HTTP.Request)
         ws = session.options.server.workspace_folder
-        ws === nothing && return _api_error(404, "this server has no workspace folder — start with Pluto.run(workspace=\"/path\")", false)
+        ws === nothing && return _api_error(404, "this server has no workspace folder — start with PlutoLand.run(workspace=\"/path\")", false)
         root = tamepath(ws)
         isdir(root) || return _api_error(404, "workspace folder does not exist: $root", false)
         body = _json(Pair[

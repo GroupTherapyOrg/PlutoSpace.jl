@@ -1,8 +1,10 @@
-name = "Pluto"
-uuid = "c3e4b0f8-55cb-11ea-2926-15256bba5781"
+name = "PlutoLand"
+uuid = "1c32774c-6937-4dfe-ba9c-80ee9278c633"
 license = "MIT"
 version = "1.0.2"
-authors = ["Fons van der Plas <fons@plutojl.org>", "Mikołaj Bochenski <github.com/malyvsen>", "Michiel Dral <m.c.dral@gmail.com>", "Παναγιώτης Γεωργακόπουλος <panagiotis@plutojl.org>", "Paul Berg <paul@plutojl.org>"]
+authors = ["Dale Black (PlutoLand)", "Fons van der Plas <fons@plutojl.org>", "Mikołaj Bochenski <github.com/malyvsen>", "Michiel Dral <m.c.dral@gmail.com>", "Παναγιώτης Γεωργακόπουλος <panagiotis@plutojl.org>", "Paul Berg <paul@plutojl.org>"]
+
+[apps.plutoland]
 
 [deps]
 Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"

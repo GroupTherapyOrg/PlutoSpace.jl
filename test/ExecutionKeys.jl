@@ -1,5 +1,5 @@
 using Test
-import Pluto: Pluto, Notebook, ServerSession, SessionActions, Cell, update_run!, update_save_run!
+import PlutoLand: Pluto, Notebook, ServerSession, SessionActions, Cell, update_run!, update_save_run!
 
 @testset "Execution keys (verifying trace)" begin
     🍭 = ServerSession()
