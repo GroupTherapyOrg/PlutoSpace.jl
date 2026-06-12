@@ -40,7 +40,7 @@ end
 "Like `_ssh_run`, but never throws: returns (ok, combined stdout+stderr) so failures are diagnosable."
 function _ssh_try(host::String, cmd::String)::Tuple{Bool,String}
     out = IOBuffer()
-    proc = run(pipeline(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $cmd`; stdout=out, stderr=out); wait=false)
+    proc = Base.run(pipeline(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $cmd`; stdout=out, stderr=out); wait=false)
     wait(proc)
     (success(proc), String(take!(out)))
 end
@@ -142,7 +142,7 @@ function _remote_connect_task!(r::RemoteSession)
         local_port, probe_server = Sockets.listenany(Sockets.localhost, 45200)
         close(probe_server)
         local_port = Int(local_port)
-        r.tunnel = run(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; wait=false)
+        r.tunnel = Base.run(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; wait=false)
         ok = false
         for _ in 1:20
             sleep(1)
