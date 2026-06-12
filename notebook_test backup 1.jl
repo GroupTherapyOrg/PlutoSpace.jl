@@ -5,7 +5,7 @@ using Markdown
 using InteractiveUtils
 
 # ╔═╡ 0fdad812-65af-11f1-9244-e5793823958b
-x = 50
+x = 7
 
 # ╔═╡ 14b53018-660b-4a50-8444-ae036e98f3ef
 y = x * 3
@@ -34,7 +34,7 @@ end
 total = r1 * 2 + x^2
 
 # ╔═╡ c1000004-0000-4000-8000-000000000004
-verdict = abs(r2) > 100 ? "BIG ($(round(Int, r2)))" : "small ($(round(Int, r2)))"
+verdict = r2 > 0 ? "POSITIVE ✔" : "NEGATIVE ✘"
 
 # ╔═╡ c1000005-0000-4000-8000-000000000005
 summary = uppercase("totals: $total // r2 came out $verdict ($r2)")
@@ -51,7 +51,7 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.12.6"
+julia_version = "1.12.4"
 manifest_format = "2.0"
 project_hash = "71853c6197a6a7f222db0f1978c7cb232b87c5ee"
 

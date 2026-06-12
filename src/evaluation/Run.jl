@@ -469,9 +469,11 @@ Stale ancestors are deliberately NOT pulled in: just like vanilla Pluto, running
 """
 function expand_stale_ancestors(notebook::Notebook, cells::Vector{Cell})::Vector{Cell}
 	needs_pull(c::Cell) = c.workspace_cold
-	seen = Set{Cell}(cells)
-	queue = copy(cells)
-	stale_ancestors = Cell[]
+	# The reactive run will execute the full downstream closure of `cells` — so any cold ancestor of ANY cell in that closure must run too, or the closure would reference variables that don't exist in this process. (E.g. on a freshly restored notebook, running a top cell re-runs its dependents, which may also depend on cold cells from other branches.)
+	closure = union(Set{Cell}(cells), collect(topological_order_cached(notebook.topology, cells)))
+	seen = copy(closure)
+	queue = collect(closure)
+	cold_ancestors = Cell[]
 	while !isempty(queue)
 		c = pop!(queue)
 		for upstream_cells in values(c.cell_dependencies.upstream_cells_map)
@@ -479,12 +481,12 @@ function expand_stale_ancestors(notebook::Notebook, cells::Vector{Cell})::Vector
 				if u isa Cell && u ∉ seen
 					push!(seen, u)
 					push!(queue, u)
-					needs_pull(u) && push!(stale_ancestors, u)
+					needs_pull(u) && push!(cold_ancestors, u)
 				end
 			end
 		end
 	end
-	isempty(stale_ancestors) ? cells : Cell[stale_ancestors..., cells...]
+	isempty(cold_ancestors) ? cells : Cell[cold_ancestors..., cells...]
 end
 
 

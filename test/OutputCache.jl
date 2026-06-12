@@ -83,5 +83,42 @@ import Pluto: Pluto, Notebook, ServerSession, SessionActions, Cell, update_run!
         SessionActions.shutdown(🍭3, nb3; async=false)
     end
 
+    @testset "cold ancestors of the run's downstream closure are pulled" begin
+        🍭4 = ServerSession()
+        🍭4.options.evaluation.workspace_use_distributed = false
+        🍭4.options.evaluation.on_code_change = "lazy"
+        nb4 = SessionActions.new(🍭4; run_async=false)
+        path4 = nb4.path
+        # two branches that only meet at the bottom: f depends on b's branch AND on c
+        write(path4, sprint(Pluto.save_notebook, Notebook([
+            Cell("a2 = 1"),
+            Cell("b2 = a2 + 1"),
+            Cell("c2 = 10"),
+            Cell("f2 = b2 + c2"),
+        ])))
+        @test Pluto.update_from_file(🍭4, nb4) # runs everything (cell-removal fallback)
+        @test nb4.cells[4].output.body == "12"
+        SessionActions.shutdown(🍭4, nb4; async=false)
+
+        🍭5 = ServerSession()
+        🍭5.options.evaluation.workspace_use_distributed = false
+        🍭5.options.evaluation.on_code_change = "lazy"
+        nb5 = SessionActions.open(🍭5, path4; run_async=false)
+        a2, b2, c2, f2 = nb5.cells
+        @test all(cell -> cell.workspace_cold, nb5.cells)
+
+        # running the TOP cell a2 reactively re-runs b2 and f2 — and f2 also needs c2, which is cold and NOT an ancestor of a2. The expansion must pull it in, or f2 would hit an UndefVarError.
+        to_run = Pluto.expand_stale_ancestors(nb5, Cell[a2])
+        @test c2 ∈ to_run
+
+        update_run!(🍭5, nb5, to_run)
+        @test !f2.errored
+        @test f2.output.body == "12"
+        @test !c2.workspace_cold
+
+        SessionActions.shutdown(🍭5, nb5; async=false)
+        rm(path4 * Pluto.OUTPUT_CACHE_SUFFIX; force=true)
+    end
+
     isfile(cache_path) && rm(cache_path)
 end
