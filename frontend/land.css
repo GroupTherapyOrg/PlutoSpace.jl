@@ -66,6 +66,25 @@ body.resizing #frames iframe {
     position: relative;
 }
 
+#land .workspace-switch {
+    position: absolute;
+    top: 0.7rem;
+    right: 2.7rem;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    opacity: 0.5;
+    cursor: pointer;
+    padding: 0.15rem 0.5rem;
+    border-radius: 1000px;
+}
+
+#land .workspace-switch:hover {
+    opacity: 1;
+    background-color: var(--main-bg-color);
+}
+
 #land .sidebar-hide {
     position: absolute;
     top: 0.7rem;
@@ -426,6 +445,30 @@ body.resizing #frames iframe {
     overflow-y: auto;
     padding: 2rem !important;
     box-sizing: border-box;
+}
+
+.opener-card header {
+    position: relative;
+}
+
+.opener-card .opener-cancel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 0.3rem 0.7rem;
+    border-radius: 1000px;
+}
+
+.opener-card .opener-cancel:hover {
+    opacity: 1;
+    background-color: var(--main-bg-color);
 }
 
 .opener-card header h1 {

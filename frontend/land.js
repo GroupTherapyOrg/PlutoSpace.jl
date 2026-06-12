@@ -61,8 +61,10 @@ const FileEntry = ({ entry, on_open_notebook, depth }) => {
     return html`<li class="file"><span class="entry plain" title=${entry.path}><span class="icon"></span>${entry.name}</span></li>`
 }
 
-/** The VS Code "Open Folder" experience: browse the server's filesystem, pick a folder. */
-const WorkspaceOpener = ({ on_opened }) => {
+/** The VS Code "Open Folder" experience: browse the server's filesystem, pick a folder.
+ *  `open_workspace(path)` is provided by the parent (it handles confirmation + shutdown of
+ *  running notebooks); `on_cancel` (optional) shows a back button when switching workspaces. */
+const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
     const [listing, set_listing] = useState(/** @type {{path: String, parent: String, dirs: Array<String>}?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
 
@@ -82,14 +84,12 @@ const WorkspaceOpener = ({ on_opened }) => {
     const open_workspace = useCallback(
         async (path) => {
             try {
-                const result = await get_json(`./api/v1/workspace/open?path=${encodeURIComponent(path)}`, { method: "POST" })
-                remember_workspace(result.root)
-                on_opened()
+                await open_workspace_raw(path)
             } catch (e) {
-                set_error(String(e))
+                String(e).includes("cancelled") || set_error(String(e))
             }
         },
-        [on_opened]
+        [open_workspace_raw]
     )
 
     const recent = get_recent_workspaces()
@@ -111,6 +111,7 @@ const WorkspaceOpener = ({ on_opened }) => {
             <header>
                 <h1>Pluto<span class="land-accent">Land</span> <span class="balloon">🎈</span></h1>
                 <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
+                ${on_cancel == null ? null : html`<button class="opener-cancel" title="Back to the current workspace" onClick=${on_cancel}>← back</button>`}
             </header>
 
             ${recent.length > 0
@@ -244,6 +245,7 @@ const Land = () => {
     const [terminal_dock, set_terminal_dock] = useState(() => (localStorage.getItem("plutoland terminal dock") === "right" ? "right" : "bottom"))
     const terminal_ever_opened = useRef(false)
     if (terminal_open) terminal_ever_opened.current = true
+    const [show_opener, set_show_opener] = useState(false)
     const auto_tabbed = useRef(false)
 
     useEffect(() => {
@@ -360,6 +362,28 @@ const Land = () => {
         })
     }, [])
 
+    const switch_workspace = useCallback(
+        async (path) => {
+            if (running.length > 0) {
+                const noun = running.length === 1 ? "1 running notebook" : `${running.length} running notebooks`
+                const ok = confirm(
+                    `Open a different workspace?\n\nThis will shut down ${noun}. Notebook files stay on disk, and outputs are cached in their .pluto-cache.toml sidecars — reopening them later restores everything.`
+                )
+                if (!ok) throw new Error("cancelled")
+                for (const nb of running) {
+                    await get_text(`./shutdown?id=${encodeURIComponent(nb.notebook_id)}`, { method: "POST" }).catch(() => {})
+                }
+                set_tabs([])
+                set_active(null)
+            }
+            const result = await get_json(`./api/v1/workspace/open?path=${encodeURIComponent(path)}`, { method: "POST" })
+            remember_workspace(result.root)
+            set_show_opener(false)
+            await refresh()
+        },
+        [running, refresh]
+    )
+
     const shutdown_notebook = useCallback(
         async (id) => {
             if (!confirm("Shut down this notebook session? The file stays on disk; outputs are cached.")) return
@@ -374,9 +398,12 @@ const Land = () => {
         [close_tab, refresh]
     )
 
-    // no workspace yet → the whole page is the opener (the VS Code "Open Folder" screen)
-    if (no_workspace) {
-        return html`<${WorkspaceOpener} on_opened=${refresh} />`
+    // the opener shows on first load (no workspace yet) and on demand (switching workspaces)
+    if (no_workspace || show_opener) {
+        return html`<${WorkspaceOpener}
+            open_workspace=${switch_workspace}
+            on_cancel=${no_workspace ? null : () => set_show_opener(false)}
+        />`
     }
 
     return html`
@@ -387,6 +414,7 @@ const Land = () => {
                 <header class="bubble">
                     <h1>Pluto<span class="land-accent">Land</span></h1>
                     <p class="workspace-root" title=${workspace?.root ?? ""}>${workspace == null ? "loading…" : basename(workspace.root)}</p>
+                    <button class="workspace-switch" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>
                     <button class="sidebar-hide" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}>⟨</button>
                 </header>
                 <section class="files bubble">
