@@ -4,8 +4,12 @@ import Pkg
 import MIMEs
 
 
+# PlutoLand: an installed app should be snappy with zero CDN fetches, so the bundle is
+# preferred whenever it exists — including dev/path installs (`Pkg.Apps.develop`), unlike
+# upstream Pluto. Frontend devs who want live-editable JS can opt out with
+# JULIA_PLUTO_FORCE_BUNDLED=nein (or delete frontend-dist/).
 function frontend_directory(; allow_bundled::Bool=true)
-    if allow_bundled && isdir(project_relative_path("frontend-dist")) && (get(ENV, "JULIA_PLUTO_FORCE_BUNDLED", "nein") == "ja" || !is_pluto_dev())
+    if allow_bundled && isdir(project_relative_path("frontend-dist")) && get(ENV, "JULIA_PLUTO_FORCE_BUNDLED", "ja") != "nein"
         "frontend-dist"
     else
         "frontend"
@@ -88,7 +92,7 @@ function is_pluto_dev()
         else
             deps = Pkg.dependencies()
 
-            p_index = findfirst(p -> p.name == "Pluto", deps)
+            p_index = findfirst(p -> p.name == "PlutoLand" || p.name == "Pluto", deps)
             p = deps[p_index]
 
             p.is_tracking_path

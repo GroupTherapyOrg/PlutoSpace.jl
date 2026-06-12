@@ -24,6 +24,10 @@ const get_json = async (url, opts) => {
 
 const basename = (p) => p.split("/").pop()
 
+// `new URL(..., import.meta.url)` works unbundled in the browser AND gets rewritten by
+// the bundler — a string src would 404 in frontend-dist where filenames are hashed.
+const logo_url = new URL("img/plutoland.svg", import.meta.url).href
+
 const RECENT_KEY = "plutoland recent workspaces"
 const get_recent_workspaces = () => {
     try {
@@ -152,7 +156,7 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
     return html`<div class="workspace-opener">
         <div class="bubble opener-card">
             <header>
-                <img class="land-logo opener-logo" src="img/plutoland.svg" alt="PlutoLand" />
+                <img class="land-logo opener-logo" src=${logo_url} alt="PlutoLand" />
                 <h1>Pluto<span class="land-accent">Land</span></h1>
                 <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
                 ${on_cancel == null ? null : html`<button class="opener-cancel" title="Back to the current workspace" onClick=${on_cancel}>← back</button>`}
@@ -670,10 +674,9 @@ const Land = () => {
                 : html`<aside style=${`width: ${sidebar_width}px`}>
                 <header class="bubble">
                     <div class="header-row">
-                        <img class="land-logo" src="img/plutoland.svg" alt="PlutoLand" />
+                        <img class="land-logo" src=${logo_url} alt="PlutoLand" />
                         <div class="header-text">
-                            <h1>Pluto<span class="land-accent">Land</span></h1>
-                            <p class="workspace-root" title=${workspace?.root ?? ""}>${workspace == null ? "loading…" : basename(workspace.root)}</p>
+                            <h1 title=${workspace?.root ?? ""}>Pluto<span class="land-accent">Land</span></h1>
                         </div>
                         <div class="header-buttons">
                             <button class="header-button" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>
