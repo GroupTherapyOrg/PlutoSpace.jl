@@ -21,7 +21,7 @@ const get_json = async (url) => {
 }
 
 const FileEntry = ({ entry, on_open_notebook, depth }) => {
-    const [open, set_open] = useState(depth < 1)
+    const [open, set_open] = useState(false)
     if (entry.type === "dir") {
         return html`<li class="dir ${open ? "open" : ""}">
             <button class="entry" onClick=${() => set_open(!open)}><span class="icon chevron"></span>${entry.name}</button>
@@ -75,7 +75,7 @@ const Land = () => {
     const open_notebook = useCallback(
         async (path) => {
             try {
-                const id = await get_text(`./open?path=${encodeURIComponent(path)}&execution_allowed=true`, { method: "POST" })
+                const id = await get_text(`./open?path=${encodeURIComponent(path)}`, { method: "POST" })
                 add_tab(id, path)
                 refresh()
             } catch (e) {
@@ -131,11 +131,11 @@ const Land = () => {
     return html`
         <div id="land">
             <aside>
-                <header>
+                <header class="bubble">
                     <h1>Pluto<span class="land-accent">Land</span></h1>
                     <p class="workspace-root" title=${workspace?.root ?? ""}>${workspace == null ? "loading…" : basename(workspace.root)}</p>
                 </header>
-                <section class="files">
+                <section class="files bubble">
                     <h2>Workspace</h2>
                     <ul class="tree">
                         ${workspace == null
@@ -145,7 +145,7 @@ const Land = () => {
                               )}
                     </ul>
                 </section>
-                <section class="running">
+                <section class="running bubble">
                     <h2>Running</h2>
                     <ul>
                         ${running.map(

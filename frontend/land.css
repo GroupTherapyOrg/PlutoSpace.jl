@@ -1,5 +1,9 @@
-/* PlutoLand hub shell. Layout only — all colors come from Pluto's theme variables
-   (themes/light.css + themes/dark.css), so the hub matches the editor automatically. */
+/* PlutoLand hub shell. Layout + geometry only — all colors come from Pluto's theme
+   variables (themes/light.css + themes/dark.css), so the hub matches the editor
+   automatically in light and dark mode.
+
+   Design language: floating rounded "bubble" cards (the welcome page's card idiom:
+   soft shadow + generous border-radius), pill-shaped entries and tabs. */
 
 html,
 body {
@@ -18,56 +22,73 @@ body {
 
 #land {
     display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    box-sizing: border-box;
 }
 
-/* ---- sidebar ---- */
+/* ---- sidebar: a stack of bubble cards ---- */
 
 #land > aside {
-    width: 280px;
+    width: 290px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    border-right: 3px solid var(--rule-color);
-    background-color: var(--code-background);
+    gap: 0.75rem;
     overflow-y: auto;
 }
 
-#land > aside header {
-    padding: 1rem 1rem 0.5rem 1rem;
+#land .bubble {
+    background-color: var(--code-background);
+    border-radius: 0.8rem;
+    box-shadow: -2px 4px 9px 0px #00000012;
+    padding: 0.8rem;
+}
+
+#land > aside header.bubble {
+    padding: 1rem;
 }
 
 #land > aside h1 {
     margin: 0;
-    font-size: 1.3rem;
+    font-size: 1.25rem;
 }
 
 #land > aside h1 .land-accent {
-    opacity: 0.6;
+    opacity: 0.55;
 }
 
 #land > aside .workspace-root {
-    margin: 0.1rem 0 0 0;
-    font-size: 0.75rem;
+    margin: 0.15rem 0 0 0;
+    font-size: 0.72rem;
     opacity: 0.6;
     font-family: var(--julia-mono-font-stack, monospace);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #land > aside h2 {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.09em;
     opacity: 0.5;
-    margin: 1rem 1rem 0.2rem 1rem;
+    margin: 0 0 0.4rem 0.4rem;
 }
 
 #land > aside ul {
     list-style: none;
     margin: 0;
-    padding: 0 0 0 0.75rem;
+    padding: 0;
+}
+
+#land > aside ul ul {
+    padding-left: 0.85rem;
 }
 
 #land > aside section.files {
     flex: 1;
+    overflow-y: auto;
 }
 
 #land .entry {
@@ -79,28 +100,40 @@ body {
     color: inherit;
     font: inherit;
     font-size: 0.85rem;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
+    padding: 0.28rem 0.7rem;
+    margin: 0.1rem 0;
+    border-radius: 1000px; /* pill, like the welcome page buttons */
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: background-color 0.08s linear, box-shadow 0.08s linear;
 }
 
 #land .entry:hover {
     background-color: var(--main-bg-color);
+    box-shadow: -1px 2px 5px 0px #00000014;
+}
+
+#land li.notebook > .entry {
+    font-weight: 600;
 }
 
 #land .entry.plain {
     cursor: default;
-    opacity: 0.55;
+    opacity: 0.5;
+}
+
+#land .entry.plain:hover {
+    background: none;
+    box-shadow: none;
 }
 
 #land .icon {
     display: inline-block;
-    width: 1em;
-    margin-right: 0.35em;
-    opacity: 0.7;
+    width: 1.1em;
+    margin-right: 0.3em;
+    opacity: 0.75;
 }
 
 #land li.dir > .entry .chevron::before {
@@ -112,8 +145,8 @@ body {
 }
 
 #land li.notebook .pluto-dot::before {
-    content: "●";
-    color: var(--cm-color-builtin, #5e7be1);
+    content: "🎈";
+    font-size: 0.85em;
 }
 
 #land section.running .running-dot::before {
@@ -126,67 +159,84 @@ body {
     align-items: center;
 }
 
+#land section.running li .entry {
+    flex: 1;
+    min-width: 0;
+}
+
 #land section.running .shutdown {
     background: none;
     border: none;
     color: inherit;
     opacity: 0.4;
     cursor: pointer;
-    padding: 0 0.5rem;
+    padding: 0.2rem 0.55rem;
+    border-radius: 1000px;
 }
 
 #land section.running .shutdown:hover {
     opacity: 1;
-}
-
-#land > aside footer {
-    padding: 0.75rem 1rem;
+    background-color: var(--main-bg-color);
 }
 
 #land .new-notebook {
     width: 100%;
     font: inherit;
     font-size: 0.85rem;
-    padding: 0.4rem;
-    border-radius: 6px;
-    border: 2px solid var(--rule-color);
-    background-color: var(--main-bg-color);
+    font-weight: 600;
+    padding: 0.55rem;
+    border-radius: 1000px;
+    border: none;
+    background-color: var(--code-background);
+    box-shadow: -2px 4px 9px 0px #00000012;
     color: inherit;
     cursor: pointer;
+    transition: box-shadow 0.08s linear, transform 0.08s linear;
 }
 
 #land .new-notebook:hover {
-    border-color: var(--cm-color-builtin, #5e7be1);
+    box-shadow: -2px 5px 12px 0px #0000001f;
+    transform: translateY(-1px);
 }
 
-/* ---- main: tabs + frames ---- */
+/* ---- main: tab bubbles + a rounded frame card ---- */
 
 #land > main {
     flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 0.6rem;
     min-width: 0;
 }
 
 #tabs {
     display: flex;
     flex-wrap: nowrap;
+    gap: 0.45rem;
     overflow-x: auto;
-    border-bottom: 3px solid var(--rule-color);
-    background-color: var(--code-background);
-    min-height: 2.2rem;
+    min-height: 2.1rem;
+    align-items: center;
+    flex-shrink: 0;
 }
 
 #tabs .tab {
     display: flex;
     align-items: center;
-    border-right: 1px solid var(--rule-color);
     max-width: 16rem;
+    border-radius: 1000px;
+    background-color: var(--code-background);
+    box-shadow: -2px 4px 9px 0px #00000012;
+    opacity: 0.75;
+    transition: opacity 0.08s linear, box-shadow 0.08s linear;
+}
+
+#tabs .tab:hover {
+    opacity: 1;
 }
 
 #tabs .tab.active {
-    background-color: var(--main-bg-color);
-    box-shadow: inset 0 3px 0 var(--cm-color-builtin, #5e7be1);
+    opacity: 1;
+    box-shadow: -2px 5px 12px 0px #0000001f, inset 0 0 0 2px var(--cm-color-builtin, #5e7be1);
 }
 
 #tabs .tab .title {
@@ -195,7 +245,8 @@ body {
     color: inherit;
     font: inherit;
     font-size: 0.85rem;
-    padding: 0.45rem 0.2rem 0.45rem 0.8rem;
+    font-weight: 600;
+    padding: 0.4rem 0.15rem 0.4rem 0.95rem;
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
@@ -208,7 +259,7 @@ body {
     color: inherit;
     opacity: 0.4;
     cursor: pointer;
-    padding: 0.45rem 0.6rem 0.45rem 0.3rem;
+    padding: 0.4rem 0.7rem 0.4rem 0.3rem;
 }
 
 #tabs .tab .close:hover {
@@ -218,6 +269,10 @@ body {
 #frames {
     flex: 1;
     position: relative;
+    border-radius: 0.8rem;
+    overflow: hidden;
+    background-color: var(--code-background);
+    box-shadow: -2px 4px 9px 0px #00000012;
 }
 
 #frames iframe {
@@ -227,6 +282,7 @@ body {
     height: 100%;
     border: none;
     display: none;
+    background-color: var(--main-bg-color);
 }
 
 #frames iframe.active {
@@ -254,9 +310,10 @@ body {
     right: 0;
     margin: 0.75rem;
     padding: 0.5rem 0.8rem;
-    border-radius: 8px;
+    border-radius: 0.8rem;
     background-color: var(--code-background);
     border: 2px solid rgba(var(--error-color, 240, 168, 168), 0.8);
+    box-shadow: -2px 4px 9px 0px #00000012;
     font-size: 0.8rem;
     max-width: 32rem;
 }
