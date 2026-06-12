@@ -37,6 +37,16 @@ function _ssh_run(host::String, cmd::String)::String
     read(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $cmd`, String)
 end
 
+"Like `_ssh_run`, but never throws: returns (ok, combined stdout+stderr) so failures are diagnosable."
+function _ssh_try(host::String, cmd::String)::Tuple{Bool,String}
+    out = IOBuffer()
+    proc = run(pipeline(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $cmd`; stdout=out, stderr=out); wait=false)
+    wait(proc)
+    (success(proc), String(take!(out)))
+end
+
+_tail(s::String; n=4) = join(last(split(strip(s), '\n'), n), " · ")
+
 function _parse_remote_registry(reg::String)
     port_m = match(r"\"port\": (\d+)", reg)
     secret_m = match(r"\"secret\": \"([^\"]+)\"", reg)
@@ -77,15 +87,34 @@ function _remote_connect_task!(r::RemoteSession)
         remote = _parse_remote_registry(reg)
 
         if remote === nothing
-            installed = occursin("yes", try
-                _ssh_run(r.host, "test -d $(REMOTE_BOOTSTRAP_DIR) && echo yes || echo no")
-            catch
-                "no"
-            end)
-            if !installed
+            # julia must exist on the remote login-shell PATH before anything else
+            ok, out = _ssh_try(r.host, "which julia")
+            if !ok
+                r.state = "error"
+                r.detail = "julia not found on $(r.host) (login shell PATH) — install julia/juliaup there first"
+                return
+            end
+
+            # idempotent bootstrap: a half-failed previous attempt is cleaned up, a good clone is reused
+            ok, out = _ssh_try(r.host, "test -d $(REMOTE_BOOTSTRAP_DIR)/.git && echo present || echo absent")
+            if !occursin("present", out)
                 r.state = "installing"
-                r.detail = "first-time setup on $(r.host): cloning the fork and instantiating (this can take a few minutes)"
-                _ssh_run(r.host, "git clone --depth 1 --branch $(REMOTE_FORK_BRANCH) $(REMOTE_FORK_URL) $(REMOTE_BOOTSTRAP_DIR) && cd $(REMOTE_BOOTSTRAP_DIR) && julia --project=. -e 'import Pkg; Pkg.instantiate()'")
+                r.detail = "first-time setup on $(r.host): cloning the fork (a minute or two)"
+                ok, out = _ssh_try(r.host, "rm -rf $(REMOTE_BOOTSTRAP_DIR) && mkdir -p ~/.plutoland && git clone --depth 1 --branch $(REMOTE_FORK_BRANCH) $(REMOTE_FORK_URL) $(REMOTE_BOOTSTRAP_DIR)")
+                if !ok
+                    hint = occursin(r"resolve host|Could not resolve|unable to access|Connection timed out|Network is unreachable"i, out) ?
+                        " — this node looks like it has NO INTERNET ACCESS (common for HPC compute/GPU nodes). Try your LOGIN node instead, or clone the fork to $(REMOTE_BOOTSTRAP_DIR) there manually." : ""
+                    r.state = "error"
+                    r.detail = "git clone failed on $(r.host): $(_tail(out))$(hint)"
+                    return
+                end
+                r.detail = "first-time setup on $(r.host): instantiating julia packages (can take a few minutes)"
+                ok, out = _ssh_try(r.host, "cd $(REMOTE_BOOTSTRAP_DIR) && julia --project=. -e 'import Pkg; Pkg.instantiate()'")
+                if !ok
+                    r.state = "error"
+                    r.detail = "Pkg.instantiate failed on $(r.host): $(_tail(out))"
+                    return
+                end
             end
 
             r.state = "starting"
