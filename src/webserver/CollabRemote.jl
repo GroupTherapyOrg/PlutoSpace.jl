@@ -17,7 +17,7 @@
 
 const REMOTE_BOOTSTRAP_DIR = "~/.plutoland/Pluto.jl"
 const REMOTE_FORK_URL = "https://github.com/GroupTherapyOrg/PlutoLand.jl"
-const REMOTE_FORK_BRANCH = "collab"
+const REMOTE_FORK_BRANCH = "main"
 
 mutable struct RemoteSession
     host::String
