@@ -25,6 +25,7 @@ mutable struct RemoteSession
     detail::String
     local_port::Int
     secret::String
+    julia::String   # absolute path of julia on the remote, once discovered
     tunnel::Union{Base.Process,Nothing}
     task::Union{Task,Nothing}
 end
@@ -46,6 +47,22 @@ function _ssh_try(host::String, cmd::String)::Tuple{Bool,String}
 end
 
 _tail(s::String; n=4) = join(last(split(strip(s), '\n'), n), " · ")
+
+# julia is often invisible to non-interactive login shells on clusters (module load / .bashrc
+# only happen interactively) — so hunt for it and use the ABSOLUTE path from then on.
+const _FIND_JULIA_SNIPPET = raw"""
+p=$(command -v julia 2>/dev/null)
+[ -z "$p" ] && [ -x "$HOME/.juliaup/bin/julia" ] && p="$HOME/.juliaup/bin/julia"
+[ -z "$p" ] && [ -x "$HOME/.local/bin/julia" ] && p="$HOME/.local/bin/julia"
+[ -z "$p" ] && p=$(bash -ic 'command -v julia' 2>/dev/null | tail -n 1)
+case "$p" in /*) echo "JULIA:$p" ;; *) echo "JULIA:" ;; esac
+"""
+
+function _find_remote_julia(host::String)::String
+    ok, out = _ssh_try(host, _FIND_JULIA_SNIPPET)
+    m = match(r"JULIA:(\S+)", out)
+    m === nothing ? "" : String(m.captures[1])
+end
 
 function _parse_remote_registry(reg::String)
     port_m = match(r"\"port\": (\d+)", reg)
@@ -87,11 +104,11 @@ function _remote_connect_task!(r::RemoteSession)
         remote = _parse_remote_registry(reg)
 
         if remote === nothing
-            # julia must exist on the remote login-shell PATH before anything else
-            ok, out = _ssh_try(r.host, "which julia")
-            if !ok
+            # find julia (absolute path) — checks PATH, juliaup, ~/.local/bin, and an interactive shell (for module/.bashrc setups)
+            r.julia = _find_remote_julia(r.host)
+            if isempty(r.julia)
                 r.state = "error"
-                r.detail = "julia not found on $(r.host) (login shell PATH) — install julia/juliaup there first"
+                r.detail = "julia not found on $(r.host) — tried the login-shell PATH, ~/.juliaup/bin, ~/.local/bin, and an interactive shell. Install juliaup there, or add 'module load julia' to your ~/.bash_profile."
                 return
             end
 
@@ -109,7 +126,7 @@ function _remote_connect_task!(r::RemoteSession)
                     return
                 end
                 r.detail = "first-time setup on $(r.host): instantiating julia packages (can take a few minutes)"
-                ok, out = _ssh_try(r.host, "cd $(REMOTE_BOOTSTRAP_DIR) && julia --project=. -e 'import Pkg; Pkg.instantiate()'")
+                ok, out = _ssh_try(r.host, "cd $(REMOTE_BOOTSTRAP_DIR) && $(r.julia) --project=. -e 'import Pkg; Pkg.instantiate()'")
                 if !ok
                     r.state = "error"
                     r.detail = "Pkg.instantiate failed on $(r.host): $(_tail(out))"
@@ -119,7 +136,7 @@ function _remote_connect_task!(r::RemoteSession)
 
             r.state = "starting"
             r.detail = "starting the PlutoLand server on $(r.host)"
-            _ssh_run(r.host, "nohup julia --project=$(REMOTE_BOOTSTRAP_DIR) -e 'import Pluto; Pluto.run(launch_browser=false, on_code_change=\"lazy\")' > ~/.plutoland/server.log 2>&1 < /dev/null & disown; true")
+            _ssh_run(r.host, "nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'import Pluto; Pluto.run(launch_browser=false, on_code_change=\"lazy\")' > ~/.plutoland/server.log 2>&1 < /dev/null & disown; true")
             for _ in 1:90
                 sleep(2)
                 reg = try
@@ -132,7 +149,7 @@ function _remote_connect_task!(r::RemoteSession)
             end
             if remote === nothing
                 r.state = "error"
-                r.detail = "the remote server did not come up — check julia is installed on $(r.host) and see ~/.plutoland/server.log there"
+                r.detail = "the remote server did not come up — see ~/.plutoland/server.log on $(r.host)"
                 return
             end
         end
@@ -188,7 +205,7 @@ function open_remote_session!(host::String)::RemoteSession
                 return r # already connecting
             end
         end
-        r = RemoteSession(host, "connecting", "", 0, "", nothing, nothing)
+        r = RemoteSession(host, "connecting", "", 0, "", "", nothing, nothing)
         r.task = @asynclog _remote_connect_task!(r)
         REMOTE_SESSIONS[host] = r
         return r
