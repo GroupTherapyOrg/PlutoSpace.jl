@@ -204,12 +204,17 @@ const TerminalPanel = ({ visible }) => {
             term.loadAddon(fit)
             term.open(node_ref.current)
             fit.fit()
+            let tid = localStorage.getItem("plutoland terminal id")
+            if (tid == null) {
+                tid = Math.random().toString(36).slice(2, 12)
+                localStorage.setItem("plutoland terminal id", tid)
+            }
             const proto = window.location.protocol === "https:" ? "wss" : "ws"
-            const socket = new WebSocket(`${proto}://${window.location.host}/terminal`)
+            const socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}`)
             socket.binaryType = "arraybuffer"
             socket.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data))
             socket.onopen = () => socket.send(`1:${term.rows},${term.cols}`)
-            socket.onclose = () => term.write("\r\n\x1b[2m[terminal session ended — reload the page for a new one]\x1b[0m\r\n")
+            socket.onclose = () => term.write("\r\n\x1b[2m[disconnected — the shell is still running; reload to reattach]\x1b[0m\r\n")
             term.onData((d) => socket.readyState === WebSocket.OPEN && socket.send("0:" + d))
             term.onResize(({ rows, cols }) => socket.readyState === WebSocket.OPEN && socket.send(`1:${rows},${cols}`))
             const ro = new ResizeObserver(() => {
@@ -414,13 +419,14 @@ const Land = () => {
             ${sidebar_hidden ? null : html`<div id="sidebar-resizer" onPointerDown=${start_sidebar_resize}></div>`}
             <main>
                 <nav id="tabs">
-                    ${tabs.map(
-                        (t) => html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
-                            <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
-                            <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
-                        </div>`
-                    )}
-                    <div class="tab-spacer"></div>
+                    <div class="tab-scroller">
+                        ${tabs.map(
+                            (t) => html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
+                                <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
+                                <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
+                            </div>`
+                        )}
+                    </div>
                     <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${() =>
         set_terminal_open(!terminal_open)}>⌨ Terminal</button>
                     ${terminal_open

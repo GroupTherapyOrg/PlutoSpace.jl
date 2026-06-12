@@ -277,14 +277,22 @@ body.resizing #frames iframe {
     display: flex;
     flex-wrap: nowrap;
     gap: 0.45rem;
-    overflow-x: auto;
     min-height: 2.1rem;
     align-items: center;
     flex-shrink: 0;
 }
 
-#tabs .tab-spacer {
+/* the tabs scroll in their own strip; the terminal toggles stay pinned on the far right */
+#tabs .tab-scroller {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: 0.2rem 0; /* room for the tab shadows */
 }
 
 .terminal-toggle {
@@ -315,6 +323,7 @@ body.resizing #frames iframe {
 #tabs .tab {
     display: flex;
     align-items: center;
+    flex-shrink: 0;
     max-width: 16rem;
     border-radius: 1000px;
     background-color: var(--code-background);

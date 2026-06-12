@@ -189,9 +189,10 @@ function run!(session::ServerSession)
             if !secret_required || is_authenticated(session, http.message)
                 if startswith(HTTP.URI(http.message.target).path, "/terminal")
                     # the PlutoLand integrated terminal: a raw PTY bridge, separate from the notebook protocol
+                    terminal_query = HTTP.queryparams(HTTP.URI(http.message.target))
                     try
                         HTTP.WebSockets.upgrade(http) do clientstream
-                            HTTP.WebSockets.isclosed(clientstream) || handle_terminal_websocket(clientstream, session)
+                            HTTP.WebSockets.isclosed(clientstream) || handle_terminal_websocket(clientstream, session, terminal_query)
                         end
                     catch ex
                         if !(ex isa InterruptException || ex isa HTTP.WebSockets.WebSocketError || ex isa EOFError || ex isa Base.IOError)
