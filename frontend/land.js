@@ -94,23 +94,37 @@ const WorkspaceOpener = ({ on_opened }) => {
 
     const recent = get_recent_workspaces()
 
+    // "/Users/dale/dev" → [{name: "/", path: "/"}, {name: "Users", path: "/Users"}, …]
+    const crumbs =
+        listing == null
+            ? []
+            : [
+                  { name: "/", path: "/" },
+                  ...listing.path
+                      .split("/")
+                      .filter((s) => s !== "")
+                      .map((name, i, parts) => ({ name, path: "/" + parts.slice(0, i + 1).join("/") })),
+              ]
+
     return html`<div class="workspace-opener">
         <div class="bubble opener-card">
-            <h1>Pluto<span class="land-accent">Land</span></h1>
-            <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
+            <header>
+                <h1>Pluto<span class="land-accent">Land</span> <span class="balloon">🎈</span></h1>
+                <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
+            </header>
 
             ${recent.length > 0
                 ? html`<section>
                       <h2>Recent</h2>
-                      <ul>
+                      <div class="recent-grid">
                           ${recent.map(
-                              (p) => html`<li>
-                                  <button class="entry" title=${p} onClick=${() => open_workspace(p)}>
-                                      <span class="icon">🗂</span>${basename(p)}<span class="entry-detail">${p}</span>
-                                  </button>
-                              </li>`
+                              (p) => html`<button class="recent-card" title=${p} onClick=${() => open_workspace(p)}>
+                                  <span class="recent-icon">🗂</span>
+                                  <span class="recent-name">${basename(p)}</span>
+                                  <span class="recent-path">${p}</span>
+                              </button>`
                           )}
-                      </ul>
+                      </div>
                   </section>`
                 : null}
 
@@ -119,20 +133,40 @@ const WorkspaceOpener = ({ on_opened }) => {
                 ${listing == null
                     ? html`<p class="subtitle">loading…</p>`
                     : html`
-                          <p class="current-path" title=${listing.path}>${listing.path}</p>
-                          <ul class="browse-list">
-                              ${listing.parent !== listing.path
-                                  ? html`<li><button class="entry" onClick=${() => browse(listing.parent)}><span class="icon">↰</span>..</button></li>`
-                                  : null}
-                              ${listing.dirs.map(
-                                  (name) => html`<li>
-                                      <button class="entry" onClick=${() => browse(`${listing.path}/${name}`)}><span class="icon">▸</span>${name}</button>
-                                  </li>`
+                          <nav class="breadcrumbs">
+                              ${crumbs.map(
+                                  (c, i) => html`<button
+                                          class="crumb ${i === crumbs.length - 1 ? "current" : ""}"
+                                          onClick=${() => browse(c.path)}
+                                          title=${c.path}
+                                      >
+                                          ${c.name}</button
+                                      >${i < crumbs.length - 1 && c.name !== "/" ? html`<span class="crumb-sep">/</span>` : null}`
                               )}
-                          </ul>
-                          <button class="new-notebook open-this-folder" onClick=${() => open_workspace(listing.path)}>
-                              Open <strong>${basename(listing.path) || listing.path}</strong> as workspace
-                          </button>
+                          </nav>
+                          <div class="dir-grid">
+                              ${listing.dirs.map(
+                                  (name) => html`<button class="dir-pill" title=${`${listing.path}/${name}`} onClick=${() => browse(`${listing.path}/${name}`)}>
+                                      <span class="dir-icon">📁</span>${name}
+                                  </button>`
+                              )}
+                              ${listing.dirs.length === 0 ? html`<p class="subtitle">no subfolders</p>` : null}
+                          </div>
+                          <div class="opener-actions">
+                              <button class="open-this-folder" onClick=${() => open_workspace(listing.path)}>
+                                  Open <strong>${basename(listing.path) || "/"}</strong> as workspace
+                              </button>
+                              <form
+                                  class="paste-path"
+                                  onSubmit=${(e) => {
+                                      e.preventDefault()
+                                      const v = e.target.elements.path.value.trim()
+                                      if (v !== "") browse(v)
+                                  }}
+                              >
+                                  <input name="path" type="text" placeholder="…or paste a folder path and press Enter" autocomplete="off" />
+                              </form>
+                          </div>
                       `}
             </section>
             ${error == null ? null : html`<p class="opener-error">${error}</p>`}
