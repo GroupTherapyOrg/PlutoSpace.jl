@@ -338,6 +338,39 @@ function register_collab_api!(router, session::ServerSession)
     end
     HTTP.register!(router, "GET", "/api/v1/workspace", serve_api_workspace)
 
+    function serve_api_file_get(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        haskey(query, "path") || return _api_error(400, "pass ?path=/abs/file", false)
+        path = tamepath(query["path"])
+        isfile(path) || return _api_error(404, "not a file: $path", false)
+        filesize(path) > 2_000_000 && return _api_error(413, "file too large to edit here (> 2 MB)", false)
+        content = try
+            read(path, String)
+        catch
+            return _api_error(500, "could not read file", false)
+        end
+        isvalid(content) || return _api_error(415, "not a UTF-8 text file", false)
+        HTTP.Response(200, ["Content-Type" => "text/plain; charset=utf-8"], content)
+    end
+    HTTP.register!(router, "GET", "/api/v1/file", serve_api_file_get)
+
+    function serve_api_file_save(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        haskey(query, "path") || return _api_error(400, "pass ?path=/abs/file", false)
+        path = tamepath(query["path"])
+        isdir(dirname(path)) || return _api_error(400, "no such directory: $(dirname(path))", false)
+        try
+            # atomic, like the notebook save path
+            tmp = path * ".plutoland_tmp"
+            write(tmp, request.body)
+            mv(tmp, path; force=true)
+        catch e
+            return _api_error(500, "could not save: $(sprint(showerror, e))", false)
+        end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], """{"ok": true}\n""")
+    end
+    HTTP.register!(router, "POST", "/api/v1/file/save", serve_api_file_save)
+
     function serve_api_interrupt(request::HTTP.Request)
         query = HTTP.queryparams(HTTP.URI(request.target))
         fmt_text = _api_wants_text(query)

@@ -37,7 +37,7 @@ const remember_workspace = (path) => {
     localStorage.setItem(RECENT_KEY, JSON.stringify([path, ...get_recent_workspaces().filter((p) => p !== path)].slice(0, 8)))
 }
 
-const FileEntry = ({ entry, on_open_notebook, depth }) => {
+const FileEntry = ({ entry, on_open_notebook, on_open_file, depth }) => {
     const [open, set_open] = useState(false)
     if (entry.type === "dir") {
         return html`<li class="dir ${open ? "open" : ""}">
@@ -45,7 +45,7 @@ const FileEntry = ({ entry, on_open_notebook, depth }) => {
             ${open
                 ? html`<ul>
                       ${entry.children.map(
-                          (c) => html`<${FileEntry} key=${c.path} entry=${c} on_open_notebook=${on_open_notebook} depth=${depth + 1} />`
+                          (c) => html`<${FileEntry} key=${c.path} entry=${c} on_open_notebook=${on_open_notebook} on_open_file=${on_open_file} depth=${depth + 1} />`
                       )}
                   </ul>`
                 : null}
@@ -58,7 +58,9 @@ const FileEntry = ({ entry, on_open_notebook, depth }) => {
             </button>
         </li>`
     }
-    return html`<li class="file"><span class="entry plain" title=${entry.path}><span class="icon"></span>${entry.name}</span></li>`
+    return html`<li class="file">
+        <button class="entry quiet" title=${entry.path} onClick=${() => on_open_file(entry.path)}><span class="icon"></span>${entry.name}</button>
+    </li>`
 }
 
 /** The VS Code "Open Folder" experience: browse the server's filesystem, pick a folder.
@@ -231,6 +233,124 @@ const TerminalPanel = ({ visible }) => {
     return html`<div class="terminal-host" ref=${node_ref}></div>`
 }
 
+
+// dirty state per open file, shared so close_tab can warn
+const file_dirty = new Map()
+
+/** A text-file editor pane built on Pluto's own bundled CodeMirror (imports/CodemirrorPlutoSetup.js),
+ *  with syntax colors wired to Pluto's --cm-color-* theme variables. Save with the button or Ctrl/Cmd+S. */
+const FileEditorPane = ({ path, visible }) => {
+    const node_ref = useRef(null)
+    const view_ref = useRef(null)
+    const started = useRef(false)
+    const [dirty, set_dirty] = useState(false)
+    const [status, set_status] = useState("loading…")
+
+    const save = useCallback(async () => {
+        const view = view_ref.current
+        if (view == null) return
+        try {
+            await get_json(`./api/v1/file/save?path=${encodeURIComponent(path)}`, { method: "POST", body: view.state.doc.toString() })
+            file_dirty.set(path, false)
+            set_dirty(false)
+            set_status("saved")
+            setTimeout(() => set_status(""), 1500)
+        } catch (e) {
+            set_status(String(e))
+        }
+    }, [path])
+
+    useEffect(() => {
+        if (!visible || started.current || node_ref.current == null) return
+        started.current = true
+        ;(async () => {
+            try {
+                const cm = await import("./imports/CodemirrorPlutoSetup.js")
+                const content = await get_text(`./api/v1/file?path=${encodeURIComponent(path)}`)
+                const v = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+                const pluto_colors = cm.HighlightStyle.define(
+                    [
+                        { tag: cm.tags.keyword, color: "var(--cm-color-keyword)" },
+                        { tag: cm.tags.comment, color: "var(--cm-color-comment)", fontStyle: "italic" },
+                        { tag: cm.tags.string, color: "var(--cm-color-string)" },
+                        { tag: cm.tags.number, color: "var(--cm-color-literal)" },
+                        { tag: cm.tags.literal, color: "var(--cm-color-literal)" },
+                        { tag: cm.tags.macroName, color: "var(--cm-color-macro)" },
+                        { tag: cm.tags.variableName, color: "var(--cm-color-variable)" },
+                        { tag: cm.tags.heading, color: "var(--cm-color-md)", fontWeight: "700" },
+                        { tag: cm.tags.link, color: "var(--cm-color-link)" },
+                    ],
+                    { all: { color: "var(--cm-color-editor-text)" } }
+                )
+                const ext = path.split(".").pop()?.toLowerCase()
+                const language =
+                    ext === "jl"
+                        ? [cm.julia()]
+                        : ext === "md"
+                          ? [cm.markdown()]
+                          : ext === "toml"
+                            ? (() => {
+                                  try {
+                                      return [cm.StreamLanguage.define(cm.toml)]
+                                  } catch {
+                                      return []
+                                  }
+                              })()
+                            : ext === "css"
+                              ? [cm.css()]
+                              : ext === "js" || ext === "mjs"
+                                ? [cm.javascript()]
+                                : ext === "html"
+                                  ? [cm.html()]
+                                  : ext === "py"
+                                    ? [cm.python()]
+                                    : []
+                const view = new cm.EditorView({
+                    state: cm.EditorState.create({
+                        doc: content,
+                        extensions: [
+                            cm.lineNumbers(),
+                            cm.history(),
+                            cm.drawSelection(),
+                            cm.indentOnInput(),
+                            cm.bracketMatching(),
+                            cm.highlightActiveLine(),
+                            cm.syntaxHighlighting(pluto_colors),
+                            ...language,
+                            cm.keymap.of([
+                                { key: "Mod-s", run: () => (save(), true) },
+                                ...cm.defaultKeymap,
+                                ...cm.historyKeymap,
+                            ]),
+                            cm.EditorView.updateListener.of((update) => {
+                                if (update.docChanged) {
+                                    file_dirty.set(path, true)
+                                    set_dirty(true)
+                                }
+                            }),
+                            cm.EditorView.theme({}, { dark: window.matchMedia("(prefers-color-scheme: dark)").matches }),
+                        ],
+                    }),
+                    parent: node_ref.current,
+                })
+                view_ref.current = view
+                set_status("")
+            } catch (e) {
+                set_status(String(e))
+            }
+        })()
+    }, [visible])
+
+    return html`<div class="file-pane">
+        <div class="file-toolbar">
+            <span class="file-path" title=${path}>${path}</span>
+            <span class="file-status">${dirty ? "●" : ""} ${status}</span>
+            <button class="file-save ${dirty ? "dirty" : ""}" onClick=${save} title="Save (Ctrl/Cmd+S)">Save</button>
+        </div>
+        <div class="file-editor" ref=${node_ref}></div>
+    </div>`
+}
+
 const Land = () => {
     const [workspace, set_workspace] = useState(/** @type {{root: String, entries: Array}?} */ (null))
     const [no_workspace, set_no_workspace] = useState(false)
@@ -279,10 +399,17 @@ const Land = () => {
         [terminal_dock]
     )
 
-    const add_tab = useCallback((id, path) => {
-        set_tabs((tabs) => (tabs.some((t) => t.id === id) ? tabs : [...tabs, { id, path }]))
+    const add_tab = useCallback((id, path, kind = "notebook") => {
+        set_tabs((tabs) => (tabs.some((t) => t.id === id) ? tabs : [...tabs, { id, path, kind }]))
         set_active(id)
     }, [])
+
+    const open_file = useCallback(
+        (path) => {
+            add_tab(`file:${path}`, path, "file")
+        },
+        [add_tab]
+    )
 
     const refresh = useCallback(async () => {
         try {
@@ -355,7 +482,12 @@ const Land = () => {
     }, [workspace, add_tab, refresh])
 
     const close_tab = useCallback((id) => {
-        // closing a tab does NOT shut down the notebook (JupyterHub semantics) — it keeps running, listed under "Running"
+        if (id.startsWith("file:")) {
+            const path = id.slice(5)
+            if (file_dirty.get(path) && !confirm("This file has unsaved changes. Close anyway?")) return
+            file_dirty.delete(path)
+        }
+        // closing a notebook tab does NOT shut down the notebook (JupyterHub semantics) — it keeps running, listed under "Running"
         set_tabs((tabs) => {
             const remaining = tabs.filter((t) => t.id !== id)
             set_active((a) => (a === id ? (remaining.length > 0 ? remaining[remaining.length - 1].id : null) : a))
@@ -431,7 +563,7 @@ const Land = () => {
                         ${workspace == null
                             ? null
                             : workspace.entries.map(
-                                  (e) => html`<${FileEntry} key=${e.path} entry=${e} on_open_notebook=${open_notebook} depth=${0} />`
+                                  (e) => html`<${FileEntry} key=${e.path} entry=${e} on_open_notebook=${open_notebook} on_open_file=${open_file} depth=${0} />`
                               )}
                     </ul>
                 </section>
@@ -478,9 +610,13 @@ const Land = () => {
                                 : null}
                         </nav>
                         <div id="frames">
-                            ${tabs.map(
-                                // every tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
-                                (t) => html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
+                            ${tabs.map((t) =>
+                                t.kind === "file"
+                                    ? html`<div key=${t.id} class="pane ${t.id === active ? "active" : ""}">
+                                          <${FileEditorPane} path=${t.path} visible=${t.id === active} />
+                                      </div>`
+                                    : // every notebook tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
+                                      html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
                             )}
                             ${tabs.length === 0
                                 ? html`<div class="empty-state">

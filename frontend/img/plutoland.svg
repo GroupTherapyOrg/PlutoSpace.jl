@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- PlutoLand: Pluto's three-circle mark, landed on a little island and claimed with a flag.
-     Circle colors/strokes are exactly Pluto's (see logo.svg / favicon.svg). -->
+<!-- PlutoLand: Pluto's exact three-circle mark, standing at the water's edge.
+     Nothing added — the place is implied by the reflection. Circle geometry and
+     colors are identical to Pluto's logo.svg / favicon.svg. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" width="132" height="132">
-  <!-- the island -->
-  <ellipse cx="66" cy="112" rx="44" ry="14" fill="#e9cd8d" stroke="#d4a95f" stroke-width="3"/>
-  <!-- water shimmer around the island -->
-  <path d="M 8 116 q 8 5 18 6 M 124 116 q -8 5 -18 6" fill="none" stroke="#7fb8d8" stroke-width="3" stroke-linecap="round" opacity="0.85"/>
-  <!-- a couple of sprouts -->
-  <path d="M 34 106 q -2 -7 -7 -9 M 34 106 q 2 -6 6 -7" fill="none" stroke="#3b972e" stroke-width="2.6" stroke-linecap="round"/>
-  <path d="M 99 109 q 2 -6 6 -8" fill="none" stroke="#3b972e" stroke-width="2.6" stroke-linecap="round"/>
-  <!-- soft shadow under the landed Pluto -->
-  <ellipse cx="66" cy="110" rx="19" ry="5" fill="#c89b54" opacity="0.55"/>
-  <!-- the Pluto mark, landed -->
-  <circle cx="66" cy="95" r="14.5" fill="#d66661" stroke="#c93d39" stroke-width="3"/>
-  <circle cx="66" cy="68" r="14.5" fill="#aa7dc0" stroke="#945bb0" stroke-width="3"/>
-  <circle cx="66" cy="41" r="14.5" fill="#6bab5b" stroke="#3b972e" stroke-width="3"/>
-  <!-- the flag, planted -->
-  <line x1="66" y1="26" x2="66" y2="7" stroke="#5d4a37" stroke-width="3" stroke-linecap="round"/>
-  <path d="M 66 7 L 88 11.5 L 66 17 Z" fill="#4063d8" stroke="#33519f" stroke-width="2" stroke-linejoin="round"/>
+  <!-- the Pluto mark -->
+  <circle cx="66" cy="73" r="13.5" fill="#d66661" stroke="#c93d39" stroke-width="3"/>
+  <circle cx="66" cy="46" r="13.5" fill="#aa7dc0" stroke="#945bb0" stroke-width="3"/>
+  <circle cx="66" cy="19" r="13.5" fill="#6bab5b" stroke="#3b972e" stroke-width="3"/>
+  <!-- the waterline -->
+  <line x1="22" y1="91" x2="110" y2="91" stroke="#7fb8d8" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- the reflection: the same mark, softened by water -->
+  <g opacity="0.38">
+    <ellipse cx="66" cy="103" rx="12.5" ry="6.5" fill="#d66661"/>
+    <ellipse cx="66" cy="117" rx="11" ry="5" fill="#aa7dc0" opacity="0.65"/>
+    <ellipse cx="66" cy="128" rx="9" ry="3.5" fill="#6bab5b" opacity="0.4"/>
+  </g>
+  <!-- two quiet ripples -->
+  <path d="M 30 101 q 6 3 13 3" fill="none" stroke="#7fb8d8" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+  <path d="M 102 99 q -5 3 -11 3" fill="none" stroke="#7fb8d8" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
 </svg>
