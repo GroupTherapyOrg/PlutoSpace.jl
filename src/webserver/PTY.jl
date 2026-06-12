@@ -1,0 +1,220 @@
+# PTY.jl — Standalone PTY management for the PlutoLand integrated terminal.
+#
+# Vendored from Sessions.jl src/services/pty.jl (itself extracted from Tachikoma.jl),
+# same author/org. Provides pty_spawn, pty_write, pty_resize!, pty_close!, pty_alive
+# for bridging a shell process to xterm.js via WebSocket. Unix only (macOS, Linux, BSD).
+
+using FileWatching: poll_fd, RawFD
+
+# ── PTY struct ──
+
+mutable struct PTY
+    master_fd::Cint
+    child_pid::Cint
+    rows::Int
+    cols::Int
+    alive::Bool
+    output::Channel{Vector{UInt8}}
+    reader_task::Task
+    on_data::Union{Function, Nothing}
+end
+
+# ── Platform constants ──
+
+const _TIOCSWINSZ = @static (Sys.isapple() || Sys.isbsd()) ? Culong(0x80087467) : Culong(0x5414)
+const _O_NONBLOCK = @static (Sys.isapple() || Sys.isbsd()) ? Cint(0x0004) : Cint(0x0800)
+const _F_SETFL = Cint(4)
+const _F_GETFL = Cint(3)
+const _EAGAIN = @static Sys.isapple() ? Cint(35) : Cint(11)
+const _POSIX_SPAWN_SETSID = @static Sys.isapple() ? Cshort(0x0400) : Cshort(0x0080)
+const _O_RDWR = Cint(2)
+const _SPAWN_FA_SIZE = @static Sys.isapple() ? 8 : 80
+const _SPAWN_ATTR_SIZE = @static Sys.isapple() ? 8 : 336
+
+function _set_nonblocking(fd::Cint)
+    flags = ccall(:fcntl, Cint, (Cint, Cint), fd, _F_GETFL)
+    ccall(:fcntl, Cint, (Cint, Cint, Cint), fd, _F_SETFL, flags | _O_NONBLOCK)
+end
+
+# ── Background reader ──
+
+function _start_pty_reader(pty::PTY)
+    @async begin
+        buf = Vector{UInt8}(undef, 8192)
+        fd = RawFD(pty.master_fd)
+        try
+            while pty.alive
+                result = poll_fd(fd, 1.0; readable=true, writable=false)
+                result.readable || continue
+                while true
+                    n = GC.@preserve buf ccall(:read, Cssize_t,
+                        (Cint, Ptr{UInt8}, Csize_t),
+                        pty.master_fd, pointer(buf), Csize_t(length(buf)))
+                    if n > 0
+                        put!(pty.output, buf[1:n])
+                        pty.on_data !== nothing && pty.on_data()
+                    elseif n < 0
+                        errno = Base.Libc.errno()
+                        errno == _EAGAIN && break
+                        pty.alive = false
+                        break
+                    else
+                        pty.alive = false
+                        break
+                    end
+                end
+            end
+        catch e
+            e isa InvalidStateException || e isa Base.IOError || (pty.alive && @debug "PTY reader error" exception=(e, catch_backtrace()))
+        end
+        pty.alive = false
+    end
+end
+
+# ── Spawn ──
+
+"""
+    pty_spawn(cmd::Vector{String}; rows=24, cols=80, env=nothing) → PTY
+
+Spawn a subprocess in a new PTY using openpty() + posix_spawnp().
+Output is delivered via `pty.output` Channel. Write input via `pty_write`.
+"""
+function pty_spawn(cmd::Vector{String}; rows::Int=24, cols::Int=80,
+                   env::Union{Dict{String,String}, Nothing}=nothing)
+    @static Sys.iswindows() && error("PTY not supported on Windows")
+    isempty(cmd) && error("pty_spawn: cmd must not be empty")
+
+    master_fd = Ref{Cint}(-1)
+    slave_fd  = Ref{Cint}(-1)
+    slave_name = zeros(UInt8, 256)
+    ws = UInt16[rows, cols, 0, 0]
+
+    ret = GC.@preserve ws slave_name ccall(:openpty, Cint,
+                (Ptr{Cint}, Ptr{Cint}, Ptr{UInt8}, Ptr{Cvoid}, Ptr{UInt16}),
+                master_fd, slave_fd, pointer(slave_name), C_NULL, pointer(ws))
+    ret == -1 && error("openpty failed: $(Base.Libc.strerror(Base.Libc.errno()))")
+
+    slave_path = GC.@preserve slave_name unsafe_string(pointer(slave_name))
+    ccall(:close, Cint, (Cint,), slave_fd[])
+    _set_nonblocking(master_fd[])
+
+    # posix_spawn file actions: close master, open slave → fd 0, dup2 to 1 and 2
+    file_actions = zeros(UInt8, _SPAWN_FA_SIZE)
+    GC.@preserve file_actions begin
+        ccall(:posix_spawn_file_actions_init, Cint, (Ptr{UInt8},), pointer(file_actions))
+        ccall(:posix_spawn_file_actions_addclose, Cint,
+              (Ptr{UInt8}, Cint), pointer(file_actions), master_fd[])
+        ccall(:posix_spawn_file_actions_addopen, Cint,
+              (Ptr{UInt8}, Cint, Cstring, Cint, Cushort),
+              pointer(file_actions), Cint(0), slave_path, _O_RDWR, Cushort(0))
+        ccall(:posix_spawn_file_actions_adddup2, Cint,
+              (Ptr{UInt8}, Cint, Cint), pointer(file_actions), Cint(0), Cint(1))
+        ccall(:posix_spawn_file_actions_adddup2, Cint,
+              (Ptr{UInt8}, Cint, Cint), pointer(file_actions), Cint(0), Cint(2))
+    end
+
+    spawn_attr = zeros(UInt8, _SPAWN_ATTR_SIZE)
+    GC.@preserve spawn_attr begin
+        ccall(:posix_spawnattr_init, Cint, (Ptr{UInt8},), pointer(spawn_attr))
+        ccall(:posix_spawnattr_setflags, Cint,
+              (Ptr{UInt8}, Cshort), pointer(spawn_attr), _POSIX_SPAWN_SETSID)
+    end
+
+    c_strs = [Base.cconvert(Cstring, s) for s in cmd]
+    argv = Cstring[Base.unsafe_convert(Cstring, c) for c in c_strs]
+    push!(argv, C_NULL)
+
+    env_dict = copy(ENV)
+    if env !== nothing
+        for (k, v) in env
+            env_dict[k] = v
+        end
+    end
+    haskey(env_dict, "TERM") || (env_dict["TERM"] = "xterm-256color")
+    env_strings = ["$k=$v" for (k, v) in env_dict]
+    env_c_strs = [Base.cconvert(Cstring, s) for s in env_strings]
+    envp = Cstring[Base.unsafe_convert(Cstring, c) for c in env_c_strs]
+    push!(envp, C_NULL)
+
+    pid = Ref{Cint}(0)
+    ret = GC.@preserve file_actions spawn_attr c_strs argv env_c_strs envp ccall(
+        :posix_spawnp, Cint,
+        (Ptr{Cint}, Cstring, Ptr{UInt8}, Ptr{UInt8}, Ptr{Cstring}, Ptr{Cstring}),
+        pid, argv[1], pointer(file_actions), pointer(spawn_attr),
+        pointer(argv), pointer(envp))
+
+    GC.@preserve file_actions ccall(:posix_spawn_file_actions_destroy, Cint,
+                                     (Ptr{UInt8},), pointer(file_actions))
+    GC.@preserve spawn_attr ccall(:posix_spawnattr_destroy, Cint,
+                                   (Ptr{UInt8},), pointer(spawn_attr))
+
+    if ret != 0
+        ccall(:close, Cint, (Cint,), master_fd[])
+        error("posix_spawnp failed: $(Base.Libc.strerror(ret))")
+    end
+
+    output = Channel{Vector{UInt8}}(64)
+    pty = PTY(master_fd[], pid[], rows, cols, true, output, (@async nothing), nothing)
+    pty.reader_task = _start_pty_reader(pty)
+    pty
+end
+
+# ── Write ──
+
+function pty_write(pty::PTY, data::Vector{UInt8})
+    isempty(data) && return
+    GC.@preserve data ccall(:write, Cssize_t,
+                (Cint, Ptr{UInt8}, Csize_t),
+                pty.master_fd, pointer(data), length(data))
+    nothing
+end
+
+pty_write(pty::PTY, s::String) = pty_write(pty, Vector{UInt8}(codeunits(s)))
+
+# ── Resize ──
+
+function pty_resize!(pty::PTY, rows::Int, cols::Int)
+    pty.rows = rows
+    pty.cols = cols
+    ws = UInt16[rows, cols, 0, 0]
+    GC.@preserve ws ccall(:ioctl, Cint,
+                (Cint, Culong, Ptr{Cvoid}...),
+                pty.master_fd, _TIOCSWINSZ, pointer(ws))
+    pty.child_pid > 0 && ccall(:kill, Cint, (Cint, Cint), -pty.child_pid, Cint(28))
+    nothing
+end
+
+# ── Alive check ──
+
+function pty_alive(pty::PTY)
+    pty.alive || return false
+    pty.child_pid <= 0 && return pty.alive
+    status = Ref{Cint}(0)
+    ret = ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint),
+                pty.child_pid, status, Cint(1))
+    if ret == pty.child_pid
+        pty.alive = false
+        return false
+    end
+    true
+end
+
+# ── Close ──
+
+function pty_close!(pty::PTY)
+    pty.master_fd == -1 && return
+    pty.alive = false
+    ccall(:close, Cint, (Cint,), pty.master_fd)
+    try close(pty.output) catch end
+    if !istaskdone(pty.reader_task)
+        try wait(pty.reader_task) catch end
+    end
+    if pty.child_pid > 0
+        ccall(:kill, Cint, (Cint, Cint), pty.child_pid, Cint(1))
+        status = Ref{Cint}(0)
+        ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint),
+              pty.child_pid, status, Cint(0))
+    end
+    pty.master_fd = Cint(-1)
+    nothing
+end

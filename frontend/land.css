@@ -283,9 +283,33 @@ body.resizing #frames iframe {
     flex-shrink: 0;
 }
 
-/* no tabs → no strip; the editor card top-aligns with the sidebar */
-#tabs.empty {
-    display: none;
+#tabs .tab-spacer {
+    flex: 1;
+}
+
+.terminal-toggle {
+    flex-shrink: 0;
+    background-color: var(--code-background);
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.35rem 0.9rem;
+    border-radius: 1000px;
+    box-shadow: -2px 4px 9px 0px #00000012;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.08s linear, box-shadow 0.08s linear;
+}
+
+.terminal-toggle:hover {
+    opacity: 1;
+}
+
+.terminal-toggle.active {
+    opacity: 1;
+    box-shadow: -2px 4px 9px 0px #00000012, inset 0 0 0 2px var(--cm-color-builtin, #5e7be1);
 }
 
 #tabs .tab {
@@ -593,6 +617,50 @@ body.resizing #frames iframe {
     margin-top: 0.8rem;
     font-size: 0.8rem;
     color: rgb(var(--error-color, 240, 168, 168));
+}
+
+/* ---- the integrated terminal panel ---- */
+
+#terminal-resizer {
+    height: 6px;
+    margin: -0.3rem 0;
+    flex-shrink: 0;
+    cursor: row-resize;
+    border-radius: 1000px;
+    transition: background-color 0.1s linear;
+}
+
+#terminal-resizer:hover {
+    background-color: var(--cm-color-builtin, #5e7be1);
+    opacity: 0.5;
+}
+
+body.resizing-v,
+body.resizing-v * {
+    cursor: row-resize !important;
+}
+
+body.resizing-v #frames iframe {
+    pointer-events: none;
+}
+
+#terminal-panel {
+    flex-shrink: 0;
+    padding: 0.6rem !important;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+#terminal-panel .terminal-host {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 0.4rem;
+}
+
+#terminal-panel .xterm {
+    height: 100%;
+    padding: 0.2rem;
 }
 
 #land-error {

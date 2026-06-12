@@ -187,6 +187,19 @@ function run!(session::ServerSession)
                 end
             end
             if !secret_required || is_authenticated(session, http.message)
+                if startswith(HTTP.URI(http.message.target).path, "/terminal")
+                    # the PlutoLand integrated terminal: a raw PTY bridge, separate from the notebook protocol
+                    try
+                        HTTP.WebSockets.upgrade(http) do clientstream
+                            HTTP.WebSockets.isclosed(clientstream) || handle_terminal_websocket(clientstream, session)
+                        end
+                    catch ex
+                        if !(ex isa InterruptException || ex isa HTTP.WebSockets.WebSocketError || ex isa EOFError || ex isa Base.IOError)
+                            @warn "Terminal websocket connection failed" exception = (ex, catch_backtrace())
+                        end
+                    end
+                    return
+                end
                 try
                     # "upgrade" means accept and start the websocket connection that the client requested
                     HTTP.WebSockets.upgrade(http) do clientstream

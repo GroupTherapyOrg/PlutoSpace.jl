@@ -174,6 +174,56 @@ const WorkspaceOpener = ({ on_opened }) => {
     </div>`
 }
 
+
+/** The integrated terminal: xterm.js bridged to a real shell over the /terminal websocket.
+ *  Wire protocol: we send "0:<keys>" and "1:<rows>,<cols>" text frames; the server sends raw
+ *  PTY bytes as binary frames. The shell starts in the workspace folder. */
+const TerminalPanel = ({ visible }) => {
+    const node_ref = useRef(null)
+    const started = useRef(false)
+
+    useEffect(() => {
+        if (!visible || started.current || node_ref.current == null) return
+        started.current = true
+        ;(async () => {
+            const [{ Terminal }, { FitAddon }] = await Promise.all([
+                import("https://esm.sh/@xterm/xterm@5.5.0?target=es2020"),
+                import("https://esm.sh/@xterm/addon-fit@0.10.0?target=es2020"),
+            ])
+            const styles = getComputedStyle(document.documentElement)
+            const term = new Terminal({
+                fontSize: 13,
+                fontFamily: "JuliaMono, SFMono-Regular, Menlo, Consolas, monospace",
+                cursorBlink: true,
+                theme: {
+                    background: styles.getPropertyValue("--code-background").trim() || "#1f1f1f",
+                    foreground: styles.getPropertyValue("--pluto-output-color").trim() || "#dddddd",
+                },
+            })
+            const fit = new FitAddon()
+            term.loadAddon(fit)
+            term.open(node_ref.current)
+            fit.fit()
+            const proto = window.location.protocol === "https:" ? "wss" : "ws"
+            const socket = new WebSocket(`${proto}://${window.location.host}/terminal`)
+            socket.binaryType = "arraybuffer"
+            socket.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data))
+            socket.onopen = () => socket.send(`1:${term.rows},${term.cols}`)
+            socket.onclose = () => term.write("\r\n\x1b[2m[terminal session ended — reload the page for a new one]\x1b[0m\r\n")
+            term.onData((d) => socket.readyState === WebSocket.OPEN && socket.send("0:" + d))
+            term.onResize(({ rows, cols }) => socket.readyState === WebSocket.OPEN && socket.send(`1:${rows},${cols}`))
+            const ro = new ResizeObserver(() => {
+                try {
+                    fit.fit()
+                } catch {}
+            })
+            ro.observe(node_ref.current)
+        })()
+    }, [visible])
+
+    return html`<div class="terminal-host" ref=${node_ref}></div>`
+}
+
 const Land = () => {
     const [workspace, set_workspace] = useState(/** @type {{root: String, entries: Array}?} */ (null))
     const [no_workspace, set_no_workspace] = useState(false)
@@ -183,12 +233,31 @@ const Land = () => {
     const [error, set_error] = useState(/** @type {String?} */ (null))
     const [sidebar_width, set_sidebar_width] = useState(() => Number(localStorage.getItem("plutoland sidebar width")) || 290)
     const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutoland sidebar hidden") === "true")
+    const [terminal_open, set_terminal_open] = useState(() => localStorage.getItem("plutoland terminal open") === "true")
+    const [terminal_height, set_terminal_height] = useState(() => Number(localStorage.getItem("plutoland terminal height")) || 280)
+    const terminal_ever_opened = useRef(false)
+    if (terminal_open) terminal_ever_opened.current = true
     const auto_tabbed = useRef(false)
 
     useEffect(() => {
         localStorage.setItem("plutoland sidebar width", String(sidebar_width))
         localStorage.setItem("plutoland sidebar hidden", String(sidebar_hidden))
-    }, [sidebar_width, sidebar_hidden])
+        localStorage.setItem("plutoland terminal open", String(terminal_open))
+        localStorage.setItem("plutoland terminal height", String(terminal_height))
+    }, [sidebar_width, sidebar_hidden, terminal_open, terminal_height])
+
+    const start_terminal_resize = useCallback((e) => {
+        e.preventDefault()
+        document.body.classList.add("resizing-v")
+        const move = (ev) => set_terminal_height(Math.max(120, Math.min(window.innerHeight - 220, window.innerHeight - ev.clientY - 12)))
+        const up = () => {
+            document.body.classList.remove("resizing-v")
+            window.removeEventListener("pointermove", move)
+            window.removeEventListener("pointerup", up)
+        }
+        window.addEventListener("pointermove", move)
+        window.addEventListener("pointerup", up)
+    }, [])
 
     const add_tab = useCallback((id, path) => {
         set_tabs((tabs) => (tabs.some((t) => t.id === id) ? tabs : [...tabs, { id, path }]))
@@ -332,13 +401,16 @@ const Land = () => {
             </aside>`}
             ${sidebar_hidden ? null : html`<div id="sidebar-resizer" onPointerDown=${start_sidebar_resize}></div>`}
             <main>
-                <nav id="tabs" class=${tabs.length === 0 ? "empty" : ""}>
+                <nav id="tabs">
                     ${tabs.map(
                         (t) => html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
                             <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
                             <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
                         </div>`
                     )}
+                    <div class="tab-spacer"></div>
+                    <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${() =>
+        set_terminal_open(!terminal_open)}>⌨ Terminal</button>
                 </nav>
                 <div id="frames">
                     ${tabs.map(
@@ -352,6 +424,14 @@ const Land = () => {
                           </div>`
                         : null}
                 </div>
+                ${terminal_ever_opened.current
+                    ? html`
+                          <div id="terminal-resizer" style=${terminal_open ? "" : "display: none"} onPointerDown=${start_terminal_resize}></div>
+                          <div id="terminal-panel" class="bubble" style=${terminal_open ? `height: ${terminal_height}px` : "display: none"}>
+                              <${TerminalPanel} visible=${terminal_open} />
+                          </div>
+                      `
+                    : null}
             </main>
             ${error == null ? null : html`<div id="land-error">${error}</div>`}
         </div>
