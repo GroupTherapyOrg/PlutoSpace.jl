@@ -9,6 +9,8 @@
 #
 # Dependencies: curl, sed. Discovery via the connection files that every running PlutoLand
 # server writes to $XDG_STATE_HOME/pluto/servers/<port>.json (like Jupyter kernels).
+# Inside a PlutoLand terminal this CLI is already on your PATH, and PLUTOLAND_PORT /
+# PLUTOLAND_SECRET point it at the live session automatically — no discovery needed.
 #
 # Commands:
 #   pluto-collab servers                          list live PlutoLand servers
@@ -69,6 +71,17 @@ live_servers() {
 find_server_for() {
     nb_path=$(abs_path "$1")
     [ -n "$nb_path" ] || { err "no such file: $1"; return 2; }
+    # Fast path: a terminal opened inside PlutoLand exports PLUTOLAND_PORT/PLUTOLAND_SECRET.
+    # Target THAT server directly — instant, and unambiguous when several servers are running.
+    if [ -n "${PLUTOLAND_PORT:-}" ] && [ -n "${PLUTOLAND_SECRET:-}" ]; then
+        base="http://127.0.0.1:$PLUTOLAND_PORT"
+        if curl -sf --connect-timeout 3 -G -o /dev/null \
+            --data-urlencode "path=$nb_path" -d "format=text" -d "secret=$PLUTOLAND_SECRET" \
+            "$base/api/v1/notebook" 2>/dev/null; then
+            printf '%s\t%s\n' "$base" "$PLUTOLAND_SECRET"
+            return 0
+        fi
+    fi
     while IFS="$(printf '\t')" read -r port host secret; do
         base="http://$host:$port"
         if curl -sf --connect-timeout 3 -G -o /dev/null \

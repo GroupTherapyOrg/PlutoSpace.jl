@@ -153,6 +153,9 @@ function run!(session::ServerSession)
 
     # connection file: lets external tools (e.g. coding agents) discover this server's port and secret
     write_collab_registry_file(session, port)
+    # agent surface: put `pluto-collab` on PATH next to the app, and (opt-in) seed the workspace's AGENTS.md
+    ensure_pluto_collab_installed()
+    maybe_write_agents_md(session)
 
     on_shutdown() = @sync begin
         # Triggered by HTTP.jl

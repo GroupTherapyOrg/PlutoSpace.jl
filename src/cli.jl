@@ -23,11 +23,14 @@ function (@main)(args)
           plutoland --port <n>         pick a port
           plutoland --autorun          classic Pluto reactivity (default is lazy/collab mode)
           plutoland --no-browser       don't open the browser
+          plutoland --agents-md        seed the workspace's AGENTS.md/CLAUDE.md so coding agents
+                                       discover the pluto-collab workflow (managed, idempotent block)
 
         In lazy mode (the default), file edits — yours or an agent's — mark cells stale
         instead of running them; outputs are cached in <notebook>.jl.pluto-cache.toml and
-        survive restarts. Agents connect via the connection file in
-        ~/.local/state/pluto/servers/ or the bin/pluto-collab CLI.
+        survive restarts. The `pluto-collab` CLI is installed on your PATH next to `plutoland`,
+        and any terminal opened inside PlutoLand exports PLUTOLAND_PORT / PLUTOLAND_SECRET so a
+        coding agent's `pluto-collab` targets this live session automatically.
         """)
         return 0
     end
@@ -51,6 +54,8 @@ function (@main)(args)
             on_code_change = "autorun"
         elseif a == "--no-browser"
             launch_browser = false
+        elseif a == "--agents-md"
+            ENV["PLUTOLAND_AGENTS_MD"] = "1"
         elseif startswith(a, "-")
             println("unknown option: $a (see --help)")
             return 1

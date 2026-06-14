@@ -37,8 +37,27 @@ function _spawn_workspace_shell(session::ServerSession)
         w !== nothing && isdir(tamepath(w)) ? tamepath(w) : homedir()
     end
     shell = get(ENV, "SHELL", Sys.isapple() ? "/bin/zsh" : "/bin/bash")
-    # a login shell, already cd'ed into the workspace
-    pty_spawn(["/bin/sh", "-c", "cd $(_shquote(dir)) && exec $(_shquote(shell)) -l"])
+
+    # Make this terminal "just work" for any CLI coding agent: the live server's port + secret
+    # so tools target THIS session without discovery, and the apps bin (where `pluto-collab`
+    # was installed) prepended to PATH defensively.
+    port = session.options.server.port
+    exports = join([
+        "export PLUTOLAND=1",
+        "export PLUTOLAND_PORT=$(_shquote(port === nothing ? "" : string(port)))",
+        "export PLUTOLAND_SECRET=$(_shquote(session.secret))",
+        "export PLUTOLAND_WORKSPACE=$(_shquote(dir))",
+        "export PATH=$(_shquote(apps_bin_dir())):\"\$PATH\"",
+    ], "; ")
+    banner = string(
+        "\e[1m🟢🟣🔴 PlutoLand live session\e[0m — notebooks in this folder are collaborative.\r\n",
+        "Edit a notebook .jl and its cells go stale in the browser; run exactly what changed:\r\n",
+        "  \e[36mpluto-collab status <nb.jl>\e[0m   ·   \e[36mpluto-collab run <nb.jl> --stale\e[0m\r\n\r\n",
+    )
+
+    # a login shell, already cd'ed into the workspace, with the agent surface exported + a banner
+    cmd = "cd $(_shquote(dir)) && $(exports); printf %s $(_shquote(banner)); exec $(_shquote(shell)) -l"
+    pty_spawn(["/bin/sh", "-c", cmd])
 end
 
 "Get the live terminal for this id, or (re)create one. The pump task forwards PTY output to every attached socket and maintains the scrollback ring."

@@ -321,6 +321,10 @@ function register_collab_api!(router, session::ServerSession)
         port isa Integer && try
             write_collab_registry_file(session, port)
         catch end
+        # opt-in: seed the newly-opened workspace's AGENTS.md/CLAUDE.md collab section
+        try
+            maybe_write_agents_md(session)
+        catch end
         HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(Pair["ok" => true, "root" => path]) * "\n")
     end
     HTTP.register!(router, "POST", "/api/v1/workspace/open", serve_api_workspace_open)
