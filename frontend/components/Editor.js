@@ -1704,11 +1704,22 @@ ${t("t_key_autosave_description")}`
                                 : null
                         }
                         <nav id="at_the_top">
-                            <a href=${
-                                this.state.binder_session_url != null ? `${this.state.binder_session_url}?token=${this.state.binder_session_token}` : "./"
-                            }>
-                                <h1><img id="logo-big" src=${url_logo_big} alt="Pluto.jl" /><img id="logo-small" src=${url_logo_small} aria-hidden="true" /></h1>
-                            </a>
+                            ${
+                                // Inside the PlutoLand workspace shell the editor runs in an iframe, and "./" serves the
+                                // Land hub — so a logo click would render the whole workspace *inside* this tab (infinite
+                                // nesting). When embedded, make the logo inert (no navigation) instead.
+                                window.self !== window.top
+                                    ? html`<a class="plutoland-inert-logo" onClick=${(e) => e.preventDefault()}>
+                                          <h1><img id="logo-big" src=${url_logo_big} alt="Pluto.jl" /><img id="logo-small" src=${url_logo_small} aria-hidden="true" /></h1>
+                                      </a>`
+                                    : html`<a
+                                          href=${this.state.binder_session_url != null
+                                              ? `${this.state.binder_session_url}?token=${this.state.binder_session_token}`
+                                              : "./"}
+                                      >
+                                          <h1><img id="logo-big" src=${url_logo_big} alt="Pluto.jl" /><img id="logo-small" src=${url_logo_small} aria-hidden="true" /></h1>
+                                      </a>`
+                            }
                             ${
                                 this.state.extended_components.CustomHeader &&
                                 html`<${this.state.extended_components.CustomHeader} notebook_id=${this.state.notebook.notebook_id} />`
