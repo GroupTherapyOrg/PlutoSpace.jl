@@ -1,7 +1,7 @@
 using Test
-import PlutoLand: Configuration, Notebook, ServerSession, ClientSession, update_run!, Cell, WorkspaceManager, SessionActions, save_notebook
-import PlutoLand.Configuration: Options, EvaluationOptions
-using PlutoLand.WorkspaceManager: poll
+import PlutoSpace: Configuration, Notebook, ServerSession, ClientSession, update_run!, Cell, WorkspaceManager, SessionActions, save_notebook
+import PlutoSpace.Configuration: Options, EvaluationOptions
+using PlutoSpace.WorkspaceManager: poll
 import Pkg
 
 

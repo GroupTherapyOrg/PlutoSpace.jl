@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# pluto-collab — talk to a LIVE PlutoLand server from any terminal.
+# pluto-collab — talk to a LIVE PlutoSpace server from any terminal.
 #
 # Lets external tools (you, a coding agent, a script) read notebook state and run cells
 # in the same live session that the browser is connected to. Both sides see each other's
 # runs in real time. Edit the notebook .jl file directly to change code — in lazy mode
-# (PlutoLand's default) edits mark cells stale instead of running them;
+# (PlutoSpace's default) edits mark cells stale instead of running them;
 # this tool is how you run them.
 #
-# Dependencies: curl, sed. Discovery via the connection files that every running PlutoLand
+# Dependencies: curl, sed. Discovery via the connection files that every running PlutoSpace
 # server writes to $XDG_STATE_HOME/pluto/servers/<port>.json (like Jupyter kernels).
-# Inside a PlutoLand terminal this CLI is already on your PATH, and PLUTOLAND_PORT /
-# PLUTOLAND_SECRET point it at the live session automatically — no discovery needed.
+# Inside a PlutoSpace terminal this CLI is already on your PATH, and PLUTOSPACE_PORT /
+# PLUTOSPACE_SECRET point it at the live session automatically — no discovery needed.
 #
 # Commands:
-#   pluto-collab servers                          list live PlutoLand servers
+#   pluto-collab servers                          list live PlutoSpace servers
 #   pluto-collab notebooks                        list open notebooks on all live servers
 #   pluto-collab status <notebook.jl> [--json]    per-cell state: stale / cold / errored / output
 #   pluto-collab run <notebook.jl> --stale        run all stale cells (and their dependents)
@@ -71,14 +71,14 @@ live_servers() {
 find_server_for() {
     nb_path=$(abs_path "$1")
     [ -n "$nb_path" ] || { err "no such file: $1"; return 2; }
-    # Fast path: a terminal opened inside PlutoLand exports PLUTOLAND_PORT/PLUTOLAND_SECRET.
+    # Fast path: a terminal opened inside PlutoSpace exports PLUTOSPACE_PORT/PLUTOSPACE_SECRET.
     # Target THAT server directly — instant, and unambiguous when several servers are running.
-    if [ -n "${PLUTOLAND_PORT:-}" ] && [ -n "${PLUTOLAND_SECRET:-}" ]; then
-        base="http://127.0.0.1:$PLUTOLAND_PORT"
+    if [ -n "${PLUTOSPACE_PORT:-}" ] && [ -n "${PLUTOSPACE_SECRET:-}" ]; then
+        base="http://127.0.0.1:$PLUTOSPACE_PORT"
         if curl -sf --connect-timeout 3 -G -o /dev/null \
-            --data-urlencode "path=$nb_path" -d "format=text" -d "secret=$PLUTOLAND_SECRET" \
+            --data-urlencode "path=$nb_path" -d "format=text" -d "secret=$PLUTOSPACE_SECRET" \
             "$base/api/v1/notebook" 2>/dev/null; then
-            printf '%s\t%s\n' "$base" "$PLUTOLAND_SECRET"
+            printf '%s\t%s\n' "$base" "$PLUTOSPACE_SECRET"
             return 0
         fi
     fi
@@ -98,8 +98,8 @@ EOF
 
 require_server() {
     found=$(find_server_for "$1") || {
-        err "no live PlutoLand server has '$1' open."
-        err "start one with:  julia -e 'import PlutoLand; PlutoLand.run(notebook=\"$1\")'"
+        err "no live PlutoSpace server has '$1' open."
+        err "start one with:  julia -e 'import PlutoSpace; PlutoSpace.run(notebook=\"$1\")'"
         exit 2
     }
     BASE=${found%%	*}

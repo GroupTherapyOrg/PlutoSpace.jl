@@ -1,6 +1,6 @@
 using Test
-import PlutoLand: Configuration, Notebook, ServerSession, ClientSession, update_run!, Cell, WorkspaceManager
-import PlutoLand.Configuration: Options, EvaluationOptions
+import PlutoSpace: Configuration, Notebook, ServerSession, ClientSession, update_run!, Cell, WorkspaceManager
+import PlutoSpace.Configuration: Options, EvaluationOptions
 
 ### MORE TESTS ARE IN PLUTODEPENDENCYEXPLORER.jL
 # The tests on the Pluto side are tests that rely more heavily on what Pluto implements on top of PlutoDependencyExplorer.

@@ -7,7 +7,7 @@ function http_router_for(session::ServerSession)
         return request::HTTP.Request -> asset_response(normpath(path))
     end
     
-    # The root page is the PlutoLand hub: with a workspace folder it shows the file browser +
+    # The root page is the PlutoSpace hub: with a workspace folder it shows the file browser +
     # tabbed notebooks; without one it shows the open-a-folder picker (VS Code style).
     # The classic welcome page remains reachable at /index.html.
     HTTP.register!(router, "GET", "/", create_serve_onefile(project_relative_path(frontend_directory(), "land.html")))

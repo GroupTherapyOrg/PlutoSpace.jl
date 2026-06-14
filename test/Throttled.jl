@@ -1,5 +1,5 @@
-import PlutoLand: Throttled
-using PlutoLand.WorkspaceManager: poll
+import PlutoSpace: Throttled
+using PlutoSpace.WorkspaceManager: poll
 
 @testset "Throttled" begin    
     x = Ref(0)

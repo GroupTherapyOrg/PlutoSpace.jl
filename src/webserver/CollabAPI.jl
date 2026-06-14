@@ -1,5 +1,5 @@
 ###
-# The collab HTTP API: how external tools (coding agents, scripts, CI) talk to a LIVE PlutoLand server.
+# The collab HTTP API: how external tools (coding agents, scripts, CI) talk to a LIVE PlutoSpace server.
 #
 # Design constraints (deliberate):
 #  - Plain HTTP + the existing Pluto secret for auth (`?secret=...` or cookie) — curl-able from
@@ -72,7 +72,7 @@ function remove_collab_registry_file(port::Integer)
     catch end
 end
 
-# --- the workspace tree (PlutoLand) ---
+# --- the workspace tree (PlutoSpace) ---
 
 "Does this file look like a Pluto notebook? (`.jl` extension + the Pluto header on line 1)"
 function _is_pluto_notebook_file(path::String)::Bool
@@ -350,7 +350,7 @@ function register_collab_api!(router, session::ServerSession)
 
     function serve_api_workspace(request::HTTP.Request)
         ws = session.options.server.workspace_folder
-        ws === nothing && return _api_error(404, "this server has no workspace folder — start with PlutoLand.run(workspace=\"/path\")", false)
+        ws === nothing && return _api_error(404, "this server has no workspace folder — start with PlutoSpace.run(workspace=\"/path\")", false)
         root = tamepath(ws)
         isdir(root) || return _api_error(404, "workspace folder does not exist: $root", false)
         body = _json(Pair[
@@ -384,7 +384,7 @@ function register_collab_api!(router, session::ServerSession)
         isdir(dirname(path)) || return _api_error(400, "no such directory: $(dirname(path))", false)
         try
             # atomic, like the notebook save path
-            tmp = path * ".plutoland_tmp"
+            tmp = path * ".plutospace_tmp"
             write(tmp, request.body)
             mv(tmp, path; force=true)
         catch e

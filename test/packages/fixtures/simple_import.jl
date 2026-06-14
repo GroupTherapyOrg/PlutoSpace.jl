@@ -12,7 +12,7 @@ using InteractiveUtils
 # 1. add our test registry: 
 #   pkg> registry add https://github.com/JuliaPluto/PlutoPkgTestRegistry
 
-# 2. using PlutoLand; import PlutoLand as Pluto, create this notebook
+# 2. using PlutoSpace; import PlutoSpace as Pluto, create this notebook
 
 # 3. use `Pluto.activate_notebook_environment` to change the version of PlutoPkgTestA to 0.2.2
 

@@ -1,4 +1,4 @@
-// PlutoLand — the workspace hub: a file browser + tabbed notebooks, all running on a
+// PlutoSpace — the workspace hub: a file browser + tabbed notebooks, all running on a
 // stock Pluto server. Every tab is the UNMODIFIED Pluto editor in an iframe (its own
 // websocket, its own state); the hub itself only talks to existing server endpoints:
 //   GET  ./api/v1/workspace        workspace file tree (404 → no workspace open yet)
@@ -26,9 +26,9 @@ const basename = (p) => p.split("/").pop()
 
 // `new URL(..., import.meta.url)` works unbundled in the browser AND gets rewritten by
 // the bundler — a string src would 404 in frontend-dist where filenames are hashed.
-const logo_url = new URL("img/plutoland.svg", import.meta.url).href
+const logo_url = new URL("img/plutospace.svg", import.meta.url).href
 
-const RECENT_KEY = "plutoland recent workspaces"
+const RECENT_KEY = "plutospace recent workspaces"
 const get_recent_workspaces = () => {
     try {
         const r = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]")
@@ -43,7 +43,7 @@ const remember_workspace = (path) => {
 
 // Terminals live in the terminal panel as their own tabs. Their shells persist on the server
 // (keyed by tid), so we remember each terminal's tid + label and reattach on reload.
-const TERMINALS_KEY = "plutoland terminals"
+const TERMINALS_KEY = "plutospace terminals"
 const restore_terminals = () => {
     try {
         const saved = JSON.parse(localStorage.getItem(TERMINALS_KEY) ?? "[]")
@@ -169,8 +169,8 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
     return html`<div class="workspace-opener">
         <div class="bubble opener-card">
             <header>
-                <img class="land-logo opener-logo" src=${logo_url} alt="PlutoLand" />
-                <h1>Pluto<span class="land-accent">Land</span></h1>
+                <img class="land-logo opener-logo" src=${logo_url} alt="PlutoSpace" />
+                <h1>Pluto<span class="land-accent">Space</span></h1>
                 <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
                 ${on_cancel == null ? null : html`<button class="opener-cancel" title="Back to the current workspace" onClick=${on_cancel}>← back</button>`}
             </header>
@@ -456,12 +456,12 @@ const Land = () => {
     const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String, kind?: String}>} */ ([]))
     const [active, set_active] = useState(/** @type {String?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
-    const [sidebar_width, set_sidebar_width] = useState(() => Number(localStorage.getItem("plutoland sidebar width")) || 290)
-    const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutoland sidebar hidden") === "true")
-    const [terminal_open, set_terminal_open] = useState(() => localStorage.getItem("plutoland terminal open") === "true")
-    const [terminal_height, set_terminal_height] = useState(() => Number(localStorage.getItem("plutoland terminal height")) || 280)
-    const [terminal_width, set_terminal_width] = useState(() => Number(localStorage.getItem("plutoland terminal width")) || 420)
-    const [terminal_dock, set_terminal_dock] = useState(() => (localStorage.getItem("plutoland terminal dock") === "right" ? "right" : "bottom"))
+    const [sidebar_width, set_sidebar_width] = useState(() => Number(localStorage.getItem("plutospace sidebar width")) || 290)
+    const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutospace sidebar hidden") === "true")
+    const [terminal_open, set_terminal_open] = useState(() => localStorage.getItem("plutospace terminal open") === "true")
+    const [terminal_height, set_terminal_height] = useState(() => Number(localStorage.getItem("plutospace terminal height")) || 280)
+    const [terminal_width, set_terminal_width] = useState(() => Number(localStorage.getItem("plutospace terminal width")) || 420)
+    const [terminal_dock, set_terminal_dock] = useState(() => (localStorage.getItem("plutospace terminal dock") === "right" ? "right" : "bottom"))
     const terminal_ever_opened = useRef(false)
     if (terminal_open) terminal_ever_opened.current = true
     const [show_opener, set_show_opener] = useState(false)
@@ -483,12 +483,12 @@ const Land = () => {
     }
 
     useEffect(() => {
-        localStorage.setItem("plutoland sidebar width", String(sidebar_width))
-        localStorage.setItem("plutoland sidebar hidden", String(sidebar_hidden))
-        localStorage.setItem("plutoland terminal open", String(terminal_open))
-        localStorage.setItem("plutoland terminal height", String(terminal_height))
-        localStorage.setItem("plutoland terminal width", String(terminal_width))
-        localStorage.setItem("plutoland terminal dock", terminal_dock)
+        localStorage.setItem("plutospace sidebar width", String(sidebar_width))
+        localStorage.setItem("plutospace sidebar hidden", String(sidebar_hidden))
+        localStorage.setItem("plutospace terminal open", String(terminal_open))
+        localStorage.setItem("plutospace terminal height", String(terminal_height))
+        localStorage.setItem("plutospace terminal width", String(terminal_width))
+        localStorage.setItem("plutospace terminal dock", terminal_dock)
     }, [sidebar_width, sidebar_hidden, terminal_open, terminal_height, terminal_width, terminal_dock])
 
     useEffect(() => {
@@ -773,9 +773,9 @@ const Land = () => {
                 : html`<aside style=${`width: ${sidebar_width}px`}>
                 <header class="bubble">
                     <div class="header-row">
-                        <img class="land-logo" src=${logo_url} alt="PlutoLand" />
+                        <img class="land-logo" src=${logo_url} alt="PlutoSpace" />
                         <div class="header-text">
-                            <h1 title=${workspace?.root ?? ""}>Pluto<span class="land-accent">Land</span></h1>
+                            <h1 title=${workspace?.root ?? ""}>Pluto<span class="land-accent">Space</span></h1>
                         </div>
                         <div class="header-buttons">
                             <button class="header-button" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>

@@ -1,52 +1,52 @@
 <div align="center">
 
-<img src="frontend/img/plutoland.svg" width="120" alt="PlutoLand">
+<img src="frontend/img/plutospace.svg" width="120" alt="PlutoSpace">
 
-# PlutoLand.jl
+# PlutoSpace.jl
 
 ### A workspace for Pluto notebooks — built for humans and agents, *together.*
 
 [Pluto.jl](https://github.com/fonsp/Pluto.jl) gives you a reactive notebook.
-**PlutoLand gives you the *land* around it:** a folder workspace, tabbed notebooks and files,
+**PlutoSpace gives you the *land* around it:** a folder workspace, tabbed notebooks and files,
 a real terminal, point-and-click SSH remotes, outputs that survive restarts, and first-class
 **human + agent collaboration** on one live session — all on the unmodified Pluto editor.
 
 <br>
 
-<img src="assets/plots-dark-2tab.png" width="900" alt="The PlutoLand workspace: file tree, tabbed notebooks, table of contents, and a WasmMakie plot">
+<img src="assets/plots-dark-2tab.png" width="900" alt="The PlutoSpace workspace: file tree, tabbed notebooks, table of contents, and a WasmMakie plot">
 
 </div>
 
 ## Install & run
 
-PlutoLand installs as a **Julia [Pkg App](https://pkgdocs.julialang.org/dev/apps/)** — one command
-puts a real `plutoland` executable on your `PATH`, so it launches like any CLI tool (no
+PlutoSpace installs as a **Julia [Pkg App](https://pkgdocs.julialang.org/dev/apps/)** — one command
+puts a real `plutospace` executable on your `PATH`, so it launches like any CLI tool (no
 `julia -e …`, no manual `import`):
 
 ```julia
-julia> import Pkg; Pkg.Apps.add(url="https://github.com/GroupTherapyOrg/PlutoLand.jl")
+julia> import Pkg; Pkg.Apps.add(url="https://github.com/GroupTherapyOrg/PlutoSpace.jl")
 ```
 
 ```sh
-$ plutoland               # workspace picker
-$ plutoland ~/project     # open a folder as a workspace
-$ plutoland notebook.jl   # open a single notebook
-$ plutoland --help
+$ plutospace               # workspace picker
+$ plutospace ~/project     # open a folder as a workspace
+$ plutospace notebook.jl   # open a single notebook
+$ plutospace --help
 ```
 
-Prefer it as a library? `import PlutoLand; PlutoLand.run()` works too (every `Pluto.run` keyword
+Prefer it as a library? `import PlutoSpace; PlutoSpace.run()` works too (every `Pluto.run` keyword
 applies). Lazy/collab mode is the default; add `--autorun` for classic Pluto reactivity.
 
 > Want to try everything below hands-on? There's a ready-made demo workspace with a guided
-> shot list: **[plutoland-demo](https://github.com/GroupTherapyOrg/plutoland-demo)**.
+> shot list: **[plutospace-demo](https://github.com/GroupTherapyOrg/plutospace-demo)**.
 
 ---
 
-# What PlutoLand adds to Pluto
+# What PlutoSpace adds to Pluto
 
 Everything in this section is something **vanilla Pluto doesn't have.** The notebook engine,
 editor, reactivity, `@bind`, packages, and the `.jl` file format are all Pluto's — and notebooks
-stay **byte-for-byte compatible in both directions.** PlutoLand only adds the land around them.
+stay **byte-for-byte compatible in both directions.** PlutoSpace only adds the land around them.
 
 | | |
 |---|---|
@@ -59,12 +59,12 @@ stay **byte-for-byte compatible in both directions.** PlutoLand only adds the la
 
 ## 🗂️ Open a *folder*, not a notebook
 
-PlutoLand starts where an IDE does: a **VS Code-style "Open Folder"** hub with recent
+PlutoSpace starts where an IDE does: a **VS Code-style "Open Folder"** hub with recent
 workspaces, a filesystem browser, and (if you have SSH hosts) one-click remotes. Pick a folder
 and its file tree becomes your sidebar — notebooks and files open as tabs beside it.
 
 <div align="center">
-<img src="assets/workspace-light.png" width="820" alt="The PlutoLand workspace opener: recent workspaces, a folder browser, and SSH remotes">
+<img src="assets/workspace-light.png" width="820" alt="The PlutoSpace workspace opener: recent workspaces, a folder browser, and SSH remotes">
 </div>
 
 ---
@@ -103,7 +103,7 @@ keeps running, replaying its scrollback on reconnect (tmux semantics, no tmux).
 ## 🌐 SSH remote workspaces — point and click
 
 Click a host from your `~/.ssh/config` and the **entire Land** — files, kernels, terminal, the
-agent API — runs on that machine over an SSH tunnel. First contact installs PlutoLand on the
+agent API — runs on that machine over an SSH tunnel. First contact installs PlutoSpace on the
 remote; after that it reconnects instantly. The VS Code Remote-SSH model, with zero config beyond
 your SSH setup.
 
@@ -115,7 +115,7 @@ your SSH setup.
 
 ## 🟡 Lazy mode: edits mark cells *stale*, you run what changed
 
-PlutoLand's default isn't autorun. Editing a cell — **in the browser *or* on disk** — marks it
+PlutoSpace's default isn't autorun. Editing a cell — **in the browser *or* on disk** — marks it
 (and everything downstream) **stale** instead of running it. *You* decide when to run, and a run
 executes **exactly the stale closure and nothing more.** Expensive, unrelated cells are never
 touched.
@@ -171,7 +171,7 @@ real time. The agent edits the `.jl` with its normal file tools; the human sees 
 **amber within a second.** No MCP, no plugins — just files, plain HTTP, and a tiny CLI.
 
 <div align="center">
-<img src="assets/live-claude-edits-dark.png" width="900" alt="A coding agent editing a notebook file on the right while PlutoLand shows the cells go stale live on the left">
+<img src="assets/live-claude-edits-dark.png" width="900" alt="A coding agent editing a notebook file on the right while PlutoSpace shows the cells go stale live on the left">
 </div>
 
 The whole agent surface is boring plumbing:
@@ -193,12 +193,12 @@ the full story and an `AGENTS.md` stanza you can drop into any notebook repo.
 
 ## Relationship to Pluto.jl
 
-PlutoLand is a friendly fork of [Pluto.jl](https://github.com/fonsp/Pluto.jl). The notebook engine,
+PlutoSpace is a friendly fork of [Pluto.jl](https://github.com/fonsp/Pluto.jl). The notebook engine,
 editor, file format, and reactivity are Pluto's, and notebooks remain fully compatible in both
 directions. For everything about notebooks themselves (reactivity, `@bind`, packages, exporting),
 see the [Pluto documentation](https://plutojl.org/). 🎈
 
-PlutoLand adds the *land around* the notebooks: workspaces, tabs, terminal, remotes, persistence,
+PlutoSpace adds the *land around* the notebooks: workspaces, tabs, terminal, remotes, persistence,
 and first-class human + agent collaboration. `--autorun` gives you classic Pluto reactivity
 whenever you want it, byte-for-byte.
 

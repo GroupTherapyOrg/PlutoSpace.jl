@@ -3,9 +3,9 @@
 #
 # Point-and-click from the workspace opener: the LOCAL server orchestrates everything
 # under the hood, idempotently —
-#   1. reuse: if this host already has a live tunnel, or a PlutoLand server already runs
+#   1. reuse: if this host already has a live tunnel, or a PlutoSpace server already runs
 #      remotely (its connection file says so), just (re)attach. Nothing repeats.
-#   2. bootstrap (first contact only): clone the fork to ~/.plutoland/Pluto.jl on the
+#   2. bootstrap (first contact only): clone the fork to ~/.plutospace/Pluto.jl on the
 #      remote and instantiate it.
 #   3. start: launch the remote server headless, read its connection file for port+secret.
 #   4. tunnel: ssh -N -L <local>:127.0.0.1:<remote>, probe /ping, hand the browser
@@ -15,8 +15,8 @@
 # Keyed SSH only (BatchMode=yes): hosts come from ~/.ssh/config; we never prompt.
 ###
 
-const REMOTE_BOOTSTRAP_DIR = "~/.plutoland/Pluto.jl"
-const REMOTE_FORK_URL = "https://github.com/GroupTherapyOrg/PlutoLand.jl"
+const REMOTE_BOOTSTRAP_DIR = "~/.plutospace/Pluto.jl"
+const REMOTE_FORK_URL = "https://github.com/GroupTherapyOrg/PlutoSpace.jl"
 const REMOTE_FORK_BRANCH = "main"
 
 mutable struct RemoteSession
@@ -105,7 +105,7 @@ function _remote_connect_task!(r::RemoteSession)
         end
 
         r.state = "checking"
-        r.detail = "looking for a running PlutoLand on $(r.host)"
+        r.detail = "looking for a running PlutoSpace on $(r.host)"
         reg = try
             _ssh_run(r.host, "cat ~/.local/state/pluto/servers/*.json 2>/dev/null | head -n 1")
         catch
@@ -125,14 +125,14 @@ function _remote_connect_task!(r::RemoteSession)
             # idempotent bootstrap with a COMPLETION MARKER (the VS Code Remote-SSH pattern):
             # the install only counts once instantiate finished; a clone without the marker
             # resumes at instantiate, a missing clone starts over.
-            ok, out = _ssh_try(r.host, "test -f ~/.plutoland/.install_ok && echo done; test -d $(REMOTE_BOOTSTRAP_DIR)/.git && echo cloned")
+            ok, out = _ssh_try(r.host, "test -f ~/.plutospace/.install_ok && echo done; test -d $(REMOTE_BOOTSTRAP_DIR)/.git && echo cloned")
             install_done = occursin("done", out)
             cloned = occursin("cloned", out)
             if !install_done
                 r.state = "installing"
                 if !cloned
                     r.detail = "first-time setup on $(r.host): cloning the fork (a minute or two)"
-                    ok, out = _ssh_try(r.host, "rm -rf $(REMOTE_BOOTSTRAP_DIR) && mkdir -p ~/.plutoland && git clone --depth 1 --branch $(REMOTE_FORK_BRANCH) $(REMOTE_FORK_URL) $(REMOTE_BOOTSTRAP_DIR)")
+                    ok, out = _ssh_try(r.host, "rm -rf $(REMOTE_BOOTSTRAP_DIR) && mkdir -p ~/.plutospace && git clone --depth 1 --branch $(REMOTE_FORK_BRANCH) $(REMOTE_FORK_URL) $(REMOTE_BOOTSTRAP_DIR)")
                     if !ok
                         hint = occursin(r"resolve host|Could not resolve|unable to access|Connection timed out|Network is unreachable"i, out) ?
                             " — this node looks like it has NO INTERNET ACCESS (common for HPC compute/GPU nodes). Try your LOGIN node instead, or clone the fork to $(REMOTE_BOOTSTRAP_DIR) there manually." : ""
@@ -144,13 +144,13 @@ function _remote_connect_task!(r::RemoteSession)
                 # run the slow step DETACHED on the remote (nohup + pidfile + log): it survives
                 # connection drops and local restarts; we just poll for the completion marker.
                 # If an install is already running (e.g. we reconnected), attach to it instead.
-                _, out = _ssh_try(r.host, "kill -0 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null && echo alive || echo dead")
+                _, out = _ssh_try(r.host, "kill -0 \$(cat ~/.plutospace/install.pid 2>/dev/null) 2>/dev/null && echo alive || echo dead")
                 if !occursin("alive", out)
                     launch = """
-                    mkdir -p ~/.plutoland
-                    rm -f ~/.plutoland/.install_ok
-                    nohup sh -c 'cd "\$HOME/.plutoland/Pluto.jl" && $(r.julia) --project=. -e "import Pkg; Pkg.instantiate()" && touch "\$HOME/.plutoland/.install_ok"' > ~/.plutoland/install.log 2>&1 < /dev/null &
-                    echo \$! > ~/.plutoland/install.pid
+                    mkdir -p ~/.plutospace
+                    rm -f ~/.plutospace/.install_ok
+                    nohup sh -c 'cd "\$HOME/.plutospace/Pluto.jl" && $(r.julia) --project=. -e "import Pkg; Pkg.instantiate()" && touch "\$HOME/.plutospace/.install_ok"' > ~/.plutospace/install.log 2>&1 < /dev/null &
+                    echo \$! > ~/.plutospace/install.pid
                     echo launched
                     """
                     ok, out = _ssh_try(r.host, launch)
@@ -165,17 +165,17 @@ function _remote_connect_task!(r::RemoteSession)
                     sleep(5)
                     elapsed = round(Int, (time() - started) / 60)
                     # PROOF over promises: stream the live install log line into the banner
-                    _, out = _ssh_try(r.host, "test -f ~/.plutoland/.install_ok && echo __DONE__; kill -0 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null && echo __ALIVE__; tail -n 1 ~/.plutoland/install.log 2>/dev/null")
+                    _, out = _ssh_try(r.host, "test -f ~/.plutospace/.install_ok && echo __DONE__; kill -0 \$(cat ~/.plutospace/install.pid 2>/dev/null) 2>/dev/null && echo __ALIVE__; tail -n 1 ~/.plutospace/install.log 2>/dev/null")
                     occursin("__DONE__", out) && break
                     log_line = strip(replace(replace(out, "__ALIVE__" => ""), "__DONE__" => ""))
                     if occursin("Juliaup configuration is locked", out)
-                        _ssh_try(r.host, "kill -9 \$(cat ~/.plutoland/install.pid 2>/dev/null) 2>/dev/null; rm -f ~/.plutoland/install.pid")
+                        _ssh_try(r.host, "kill -9 \$(cat ~/.plutospace/install.pid 2>/dev/null) 2>/dev/null; rm -f ~/.plutospace/install.pid")
                         r.state = "error"
                         r.detail = "the juliaup shim deadlocked on its config lock on $(r.host) (often a hung self-update on an internet-less node) — retry: the real julia binary will be used directly"
                         return
                     end
                     if !occursin("__ALIVE__", out)
-                        _, log = _ssh_try(r.host, "tail -n 6 ~/.plutoland/install.log 2>/dev/null")
+                        _, log = _ssh_try(r.host, "tail -n 6 ~/.plutospace/install.log 2>/dev/null")
                         r.state = "error"
                         r.detail = "Pkg.instantiate failed on $(r.host): $(_tail(log))"
                         return
@@ -183,15 +183,15 @@ function _remote_connect_task!(r::RemoteSession)
                     r.detail = "installing on $(r.host) ($(elapsed) min): $(isempty(log_line) ? "starting up…" : last(log_line, 110))"
                     if time() - started > 45 * 60
                         r.state = "error"
-                        r.detail = "install on $(r.host) still not finished after 45 minutes — check ~/.plutoland/install.log there"
+                        r.detail = "install on $(r.host) still not finished after 45 minutes — check ~/.plutospace/install.log there"
                         return
                     end
                 end
             end
 
             r.state = "starting"
-            r.detail = "starting the PlutoLand server on $(r.host)"
-            _ssh_run(r.host, "nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'm = try Base.require(Main, :PlutoLand) catch; Base.require(Main, :Pluto) end; m.run(launch_browser=false)' > ~/.plutoland/server.log 2>&1 < /dev/null & disown; true")
+            r.detail = "starting the PlutoSpace server on $(r.host)"
+            _ssh_run(r.host, "nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'm = try Base.require(Main, :PlutoSpace) catch; Base.require(Main, :Pluto) end; m.run(launch_browser=false)' > ~/.plutospace/server.log 2>&1 < /dev/null & disown; true")
             for _ in 1:90
                 sleep(2)
                 reg = try
@@ -204,7 +204,7 @@ function _remote_connect_task!(r::RemoteSession)
             end
             if remote === nothing
                 r.state = "error"
-                r.detail = "the remote server did not come up — see ~/.plutoland/server.log on $(r.host)"
+                r.detail = "the remote server did not come up — see ~/.plutospace/server.log on $(r.host)"
                 return
             end
         end

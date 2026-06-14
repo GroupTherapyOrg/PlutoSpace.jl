@@ -1,6 +1,6 @@
 using Test
 
-import PlutoLand: Notebook, ServerSession, ClientSession, Cell, load_notebook, load_notebook_nobackup, save_notebook, WorkspaceManager, cutename, numbered_until_new, readwrite, without_pluto_file_extension, PlutoEvent, update_run!
+import PlutoSpace: Notebook, ServerSession, ClientSession, Cell, load_notebook, load_notebook_nobackup, save_notebook, WorkspaceManager, cutename, numbered_until_new, readwrite, without_pluto_file_extension, PlutoEvent, update_run!
 import Random
 import Pkg
 import UUIDs: UUID

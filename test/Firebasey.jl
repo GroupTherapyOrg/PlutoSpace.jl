@@ -1,5 +1,5 @@
 using Test
-import PlutoLand: ServerSession, update_run!, WorkspaceManager
+import PlutoSpace: ServerSession, update_run!, WorkspaceManager
 
 @testset "Test Firebasey" begin
     🍭 = ServerSession()

@@ -1,7 +1,7 @@
 using Test
-using PlutoLand.Configuration: CompilerOptions
-using PlutoLand.WorkspaceManager: _merge_notebook_compiler_options
-import PlutoLand: update_save_run!, update_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell, project_relative_path
+using PlutoSpace.Configuration: CompilerOptions
+using PlutoSpace.WorkspaceManager: _merge_notebook_compiler_options
+import PlutoSpace: update_save_run!, update_run!, WorkspaceManager, ClientSession, ServerSession, Notebook, Cell, project_relative_path
 import Malt
 
 @testset "Workspace manager" begin
@@ -63,7 +63,7 @@ import Malt
                 Pkg.activate()
                 empty!(LOAD_PATH)
                 push!(LOAD_PATH, $(repr(Base.load_path()))...)
-                import PlutoLand as Pluto
+                import PlutoSpace as Pluto
             end"""),
             Cell("""
             begin

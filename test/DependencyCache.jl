@@ -1,6 +1,6 @@
 using Test
-using PlutoLand; import PlutoLand as Pluto
-using PlutoLand; import PlutoLand as Pluto: update_run!, ServerSession, ClientSession, Cell, Notebook
+using PlutoSpace; import PlutoSpace as Pluto
+using PlutoSpace; import PlutoSpace as Pluto: update_run!, ServerSession, ClientSession, Cell, Notebook
 
 
 @testset "CellDepencencyVisualization" begin

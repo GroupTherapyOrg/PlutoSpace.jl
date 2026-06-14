@@ -1,4 +1,4 @@
-# PTY.jl — Standalone PTY management for the PlutoLand integrated terminal.
+# PTY.jl — Standalone PTY management for the PlutoSpace integrated terminal.
 #
 # Vendored from Sessions.jl src/services/pty.jl (itself extracted from Tachikoma.jl),
 # same author/org. Provides pty_spawn, pty_write, pty_resize!, pty_close!, pty_alive

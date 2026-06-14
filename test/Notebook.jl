@@ -1,6 +1,6 @@
 using Test
-import PlutoLand: Notebook, ServerSession, ClientSession, Cell, load_notebook, load_notebook_nobackup, save_notebook, WorkspaceManager, cutename, numbered_until_new, readwrite, without_pluto_file_extension, update_run!, get_metadata_no_default, is_disabled, create_cell_metadata, update_skipped_cells_dependency!
-import PlutoLand.WorkspaceManager
+import PlutoSpace: Notebook, ServerSession, ClientSession, Cell, load_notebook, load_notebook_nobackup, save_notebook, WorkspaceManager, cutename, numbered_until_new, readwrite, without_pluto_file_extension, update_run!, get_metadata_no_default, is_disabled, create_cell_metadata, update_skipped_cells_dependency!
+import PlutoSpace.WorkspaceManager
 import Random
 import Pkg
 import UUIDs: UUID

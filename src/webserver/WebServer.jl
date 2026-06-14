@@ -159,7 +159,7 @@ function run!(session::ServerSession)
 
     on_shutdown() = @sync begin
         # Triggered by HTTP.jl
-        @info("\nClosing PlutoLand... Restart Julia for a fresh session. \n\nHave a nice day! 🎈🏝\n\n")
+        @info("\nClosing PlutoSpace... Restart Julia for a fresh session. \n\nHave a nice day! 🎈🏝\n\n")
         remove_collab_registry_file(port)
         # TODO: put do_work tokens back
         @async swallow_exception(() -> close(serversocket), Base.IOError)
@@ -191,7 +191,7 @@ function run!(session::ServerSession)
             end
             if !secret_required || is_authenticated(session, http.message)
                 if startswith(HTTP.URI(http.message.target).path, "/terminal")
-                    # the PlutoLand integrated terminal: a raw PTY bridge, separate from the notebook protocol
+                    # the PlutoSpace integrated terminal: a raw PTY bridge, separate from the notebook protocol
                     terminal_query = HTTP.queryparams(HTTP.URI(http.message.target))
                     try
                         HTTP.WebSockets.upgrade(http) do clientstream

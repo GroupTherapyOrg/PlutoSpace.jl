@@ -1,5 +1,5 @@
 ###
-# The PlutoLand integrated terminal: a WebSocket ⇄ PTY bridge with PERSISTENT sessions.
+# The PlutoSpace integrated terminal: a WebSocket ⇄ PTY bridge with PERSISTENT sessions.
 #
 # A client connects a websocket to `/terminal?tid=<id>` (authenticated with the normal
 # Pluto secret — cookie or ?secret=…). The shell session belongs to the `tid`, not the
@@ -43,14 +43,14 @@ function _spawn_workspace_shell(session::ServerSession)
     # was installed) prepended to PATH defensively.
     port = session.options.server.port
     exports = join([
-        "export PLUTOLAND=1",
-        "export PLUTOLAND_PORT=$(_shquote(port === nothing ? "" : string(port)))",
-        "export PLUTOLAND_SECRET=$(_shquote(session.secret))",
-        "export PLUTOLAND_WORKSPACE=$(_shquote(dir))",
+        "export PLUTOSPACE=1",
+        "export PLUTOSPACE_PORT=$(_shquote(port === nothing ? "" : string(port)))",
+        "export PLUTOSPACE_SECRET=$(_shquote(session.secret))",
+        "export PLUTOSPACE_WORKSPACE=$(_shquote(dir))",
         "export PATH=$(_shquote(apps_bin_dir())):\"\$PATH\"",
     ], "; ")
     banner = string(
-        "\e[1m🟢🟣🔴 PlutoLand live session\e[0m — notebooks in this folder are collaborative.\r\n",
+        "\e[1m🟢🟣🔴 PlutoSpace live session\e[0m — notebooks in this folder are collaborative.\r\n",
         "Edit a notebook .jl and its cells go stale in the browser; run exactly what changed:\r\n",
         "  \e[36mpluto-collab status <nb.jl>\e[0m   ·   \e[36mpluto-collab run <nb.jl> --stale\e[0m\r\n\r\n",
     )

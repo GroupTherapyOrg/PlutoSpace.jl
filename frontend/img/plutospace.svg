@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<!-- PlutoLand: the same three circles as Pluto's mark (identical fills, strokes, radii,
+<!-- PlutoSpace: the same three circles as Pluto's mark (identical fills, strokes, radii,
      and overlap ratio) — rearranged from a floating stack into a mound. The dots, landed. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" width="132" height="132">
   <circle cx="54" cy="84" r="16.5" fill="#aa7dc0" stroke="#945bb0" stroke-width="3"/>

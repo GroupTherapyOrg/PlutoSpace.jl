@@ -1,6 +1,6 @@
-# PlutoLand collaboration: humans and agents on one live notebook
+# PlutoSpace collaboration: humans and agents on one live notebook
 
-PlutoLand's **lazy reactive mode** (the default): a human in the browser and any number of
+PlutoSpace's **lazy reactive mode** (the default): a human in the browser and any number of
 external tools (coding agents, scripts, CI) work on the **same live notebook session** —
 same kernel, same state, both sides see everything in real time — using nothing but
 **files, plain HTTP, and a tiny CLI**. No MCP servers, no plugins, no agent integrations:
@@ -9,11 +9,11 @@ any tool that can edit a file and run `curl` already works.
 ## Start
 
 ```julia
-import PlutoLand
-PlutoLand.run()        # lazy collab mode is the default
+import PlutoSpace
+PlutoSpace.run()        # lazy collab mode is the default
 ```
 
-(or `plutoland` from a terminal, once installed as an app). Lazy mode means three things:
+(or `plutospace` from a terminal, once installed as an app). Lazy mode means three things:
 
 1. **Edits mark cells stale instead of running them.** When the notebook `.jl` file changes
    on disk (lazy mode watches it automatically), the edited cells get the familiar yellow
@@ -71,7 +71,7 @@ itself on demand.
 ## The agent workflow (any agent, any terminal)
 
 ```text
-1. (human)  plutoland nb.jl
+1. (human)  plutospace nb.jl
 2. (agent)  edits nb.jl with its normal file tools         ← human sees cells go stale, live
 3. (agent)  pluto-collab status nb.jl                      ← sees exactly what's stale
 4. (agent)  pluto-collab run nb.jl --stale                 ← human watches cells run, live
