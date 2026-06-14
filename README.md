@@ -50,10 +50,10 @@ stay **byte-for-byte compatible in both directions.** PlutoLand only adds the la
 
 | | |
 |---|---|
-| 🗂️ [Folder workspaces](#-open-a-folder-not-a-notebook) | 🪟 [Notebooks & files as tabs](#-everything-is-a-tab) |
-| ⌨️ [A real, persistent terminal](#-a-real-terminal-that-survives-refreshes) | 🌐 [SSH remote workspaces](#-ssh-remote-workspaces--point-and-click) |
-| 🟡 [Lazy mode: run what changed](#-lazy-mode-edits-mark-cells-stale-you-run-what-changed) | 🗃️ [Two files: code + a cache sidecar](#-two-files-per-notebook-code--an-output-sidecar) |
-| ♻️ [Outputs survive restarts](#-outputs-survive-a-restart--verified-not-guessed) | 🤝 [Humans + agents, one live session](#-humans-and-agents-on-one-live-session) |
+| 🗂️ [Folder workspaces](#️-open-a-folder-not-a-notebook) | 🪟 [Notebooks & files as tabs](#-everything-is-a-tab) |
+| ⌨️ [A real, persistent terminal](#️-a-real-terminal-that-survives-refreshes) | 🌐 [SSH remote workspaces](#-ssh-remote-workspaces--point-and-click) |
+| 🟡 [Lazy mode: run what changed](#-lazy-mode-edits-mark-cells-stale-you-run-what-changed) | 🗃️ [Two files: code + a cache sidecar](#️-two-files-per-notebook-code--an-output-sidecar) |
+| ♻️ [Outputs survive restarts](#️-outputs-survive-a-restart--verified-not-guessed) | 🤝 [Humans + agents, one live session](#-humans-and-agents-on-one-live-session) |
 
 ---
 
