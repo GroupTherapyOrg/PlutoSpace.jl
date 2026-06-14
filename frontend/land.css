@@ -471,6 +471,37 @@ body.resizing #frames iframe {
     opacity: 1;
 }
 
+/* terminal tabs: the same pill as notebook tabs, with a keyboard glyph */
+#tabs .tab.terminal-tab .title {
+    display: inline-flex;
+    align-items: center;
+}
+.tab-term-icon {
+    opacity: 0.7;
+    margin-right: 0.4rem;
+    font-size: 0.95em;
+}
+
+/* the "+" at the end of the tab strip opens a new terminal tab */
+#tabs .new-terminal-tab {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-size: 1.05rem;
+    line-height: 1;
+    opacity: 0.45;
+    cursor: pointer;
+    padding: 0.25rem 0.6rem;
+    border-radius: 1000px;
+    transition: opacity 0.08s linear, background-color 0.08s linear;
+}
+#tabs .new-terminal-tab:hover {
+    opacity: 1;
+    background-color: var(--main-bg-color);
+}
+
 #frames {
     flex: 1;
     min-width: 0;
@@ -993,6 +1024,23 @@ body.resizing-v #frames iframe {
 }
 
 #terminal-panel .xterm {
+    height: 100%;
+    padding: 0.2rem;
+}
+
+/* a terminal living in a TAB pane — same machinery as the docked terminal */
+#frames .pane.terminal-pane {
+    padding: 0.6rem;
+    box-sizing: border-box;
+    background-color: var(--main-bg-color);
+}
+#frames .terminal-pane .terminal-host {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 0.4rem;
+}
+#frames .terminal-pane .xterm {
     height: 100%;
     padding: 0.2rem;
 }

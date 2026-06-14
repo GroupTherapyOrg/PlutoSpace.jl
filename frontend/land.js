@@ -41,6 +41,21 @@ const remember_workspace = (path) => {
     localStorage.setItem(RECENT_KEY, JSON.stringify([path, ...get_recent_workspaces().filter((p) => p !== path)].slice(0, 8)))
 }
 
+// Terminal tabs persist across reloads: their shells live on the server (keyed by tid), so we
+// remember each tab's tid + label and reattach on load — same idea as the docked terminal.
+const TERMINAL_TABS_KEY = "plutoland terminal tabs"
+const restore_terminal_tabs = () => {
+    try {
+        const saved = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) ?? "[]")
+        if (!Array.isArray(saved)) return []
+        return saved
+            .filter((t) => t && t.kind === "terminal" && typeof t.tid === "string")
+            .map((t) => ({ id: t.id, kind: "terminal", tid: t.tid, label: t.label ?? "Terminal", path: t.label ?? "Terminal" }))
+    } catch {
+        return []
+    }
+}
+
 const FileEntry = ({ entry, on_open_notebook, on_open_file, on_create_in, on_delete, depth }) => {
     const [open, set_open] = useState(false)
     if (entry.type === "dir") {
@@ -267,10 +282,12 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
 }
 
 
-/** The integrated terminal: xterm.js bridged to a real shell over the /terminal websocket.
- *  Wire protocol: we send "0:<keys>" and "1:<rows>,<cols>" text frames; the server sends raw
- *  PTY bytes as binary frames. The shell starts in the workspace folder. */
-const TerminalPanel = ({ visible }) => {
+/** A terminal view: xterm.js bridged to a real shell over the /terminal websocket, keyed by `tid`.
+ *  Wire protocol: we send "0:<keys>" and "1:<rows>,<cols>" text frames; the server sends raw PTY
+ *  bytes as binary frames. The shell starts in the workspace folder and PERSISTS on the server by
+ *  `tid` — so reattaching (a tab switch, a reload) replays scrollback. Used by both the docked
+ *  terminal and each terminal tab; the only difference is which `tid` they own. */
+const TerminalView = ({ tid, visible }) => {
     const node_ref = useRef(null)
     const started = useRef(false)
 
@@ -296,11 +313,6 @@ const TerminalPanel = ({ visible }) => {
             term.loadAddon(fit)
             term.open(node_ref.current)
             fit.fit()
-            let tid = localStorage.getItem("plutoland terminal id")
-            if (tid == null) {
-                tid = Math.random().toString(36).slice(2, 12)
-                localStorage.setItem("plutoland terminal id", tid)
-            }
             const proto = window.location.protocol === "https:" ? "wss" : "ws"
             const socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}`)
             socket.binaryType = "arraybuffer"
@@ -443,8 +455,13 @@ const Land = () => {
     const [workspace, set_workspace] = useState(/** @type {{root: String, entries: Array}?} */ (null))
     const [no_workspace, set_no_workspace] = useState(false)
     const [running, set_running] = useState(/** @type {Array<{notebook_id: String, path: String}>} */ ([]))
-    const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String}>} */ ([]))
-    const [active, set_active] = useState(/** @type {String?} */ (null))
+    const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String, kind?: String, tid?: String, label?: String}>} */ (() => restore_terminal_tabs()))
+    const [active, set_active] = useState(
+        /** @type {String?} */ (() => {
+            const r = restore_terminal_tabs()
+            return r.length ? r[r.length - 1].id : null
+        })
+    )
     const [error, set_error] = useState(/** @type {String?} */ (null))
     const [sidebar_width, set_sidebar_width] = useState(() => Number(localStorage.getItem("plutoland sidebar width")) || 290)
     const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutoland sidebar hidden") === "true")
@@ -457,6 +474,26 @@ const Land = () => {
     const [show_opener, set_show_opener] = useState(false)
     const auto_tabbed = useRef(false)
 
+    // The docked terminal keeps one persistent shell (tid in localStorage). Terminal *tabs* each
+    // own their own tid (restored above); `terminal_seq` numbers new ones ("Terminal N").
+    const docked_tid = useRef(/** @type {String?} */ (null))
+    if (docked_tid.current == null) {
+        let t = localStorage.getItem("plutoland terminal id")
+        if (t == null) {
+            t = "dock-" + Math.random().toString(36).slice(2, 12)
+            localStorage.setItem("plutoland terminal id", t)
+        }
+        docked_tid.current = t
+    }
+    const terminal_seq = useRef(/** @type {Number} */ (-1))
+    if (terminal_seq.current < 0) {
+        const nums = tabs
+            .filter((t) => t.kind === "terminal")
+            .map((t) => parseInt(String(t.label ?? "").replace(/[^0-9]/g, ""), 10))
+            .filter((x) => !isNaN(x))
+        terminal_seq.current = nums.length ? Math.max(...nums) : 0
+    }
+
     useEffect(() => {
         localStorage.setItem("plutoland sidebar width", String(sidebar_width))
         localStorage.setItem("plutoland sidebar hidden", String(sidebar_hidden))
@@ -465,6 +502,13 @@ const Land = () => {
         localStorage.setItem("plutoland terminal width", String(terminal_width))
         localStorage.setItem("plutoland terminal dock", terminal_dock)
     }, [sidebar_width, sidebar_hidden, terminal_open, terminal_height, terminal_width, terminal_dock])
+
+    useEffect(() => {
+        localStorage.setItem(
+            TERMINAL_TABS_KEY,
+            JSON.stringify(tabs.filter((t) => t.kind === "terminal").map((t) => ({ id: t.id, kind: "terminal", tid: t.tid, label: t.label })))
+        )
+    }, [tabs])
 
     const start_terminal_resize = useCallback(
         (e) => {
@@ -498,6 +542,15 @@ const Land = () => {
         },
         [add_tab]
     )
+
+    const new_terminal_tab = useCallback(() => {
+        terminal_seq.current += 1
+        const tid = "tab-" + Math.random().toString(36).slice(2, 12)
+        const id = `terminal:${tid}`
+        const label = `Terminal ${terminal_seq.current}`
+        set_tabs((tabs) => [...tabs, { id, kind: "terminal", tid, label, path: label }])
+        set_active(id)
+    }, [])
 
 
     const refresh = useCallback(async () => {
@@ -731,12 +784,20 @@ const Land = () => {
                     <div class="editor-card">
                         <nav id="tabs">
                             <div class="tab-scroller">
-                                ${tabs.map(
-                                    (t) => html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
-                                        <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
-                                        <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
-                                    </div>`
+                                ${tabs.map((t) =>
+                                    t.kind === "terminal"
+                                        ? html`<div class="tab terminal-tab ${t.id === active ? "active" : ""}" key=${t.id}>
+                                              <button class="title" title=${t.label} onClick=${() => set_active(t.id)}>
+                                                  <span class="tab-term-icon">⌨</span>${t.label}
+                                              </button>
+                                              <button class="close" title="Close terminal tab" onClick=${() => close_tab(t.id)}>×</button>
+                                          </div>`
+                                        : html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
+                                              <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
+                                              <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
+                                          </div>`
                                 )}
+                                <button class="new-terminal-tab" title="New terminal tab" onClick=${new_terminal_tab}>＋</button>
                             </div>
                             <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${() =>
         set_terminal_open(!terminal_open)}>⌨ Terminal</button>
@@ -752,12 +813,17 @@ const Land = () => {
                         </nav>
                         <div id="frames">
                             ${tabs.map((t) =>
-                                t.kind === "file"
-                                    ? html`<div key=${t.id} class="pane ${t.id === active ? "active" : ""}">
-                                          <${FileEditorPane} path=${t.path} visible=${t.id === active} />
+                                t.kind === "terminal"
+                                    ? // a terminal tab: the same xterm/PTY machinery as the docked terminal, in a tab pane
+                                      html`<div key=${t.id} class="pane terminal-pane ${t.id === active ? "active" : ""}">
+                                          <${TerminalView} tid=${t.tid} visible=${t.id === active} />
                                       </div>`
-                                    : // every notebook tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
-                                      html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
+                                    : t.kind === "file"
+                                      ? html`<div key=${t.id} class="pane ${t.id === active ? "active" : ""}">
+                                            <${FileEditorPane} path=${t.path} visible=${t.id === active} />
+                                        </div>`
+                                      : // every notebook tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
+                                        html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
                             )}
                             ${tabs.length === 0
                                 ? html`<div class="empty-state">
@@ -779,7 +845,7 @@ const Land = () => {
                                           : `width: ${terminal_width}px`
                                       : "display: none"}
                               >
-                                  <${TerminalPanel} visible=${terminal_open} />
+                                  <${TerminalView} tid=${docked_tid.current} visible=${terminal_open} />
                               </div>
                           `
                         : null}
