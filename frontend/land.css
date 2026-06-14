@@ -471,8 +471,9 @@ body.resizing #frames iframe {
     opacity: 1;
 }
 
-/* terminal tabs: the same pill as notebook tabs, with a keyboard glyph */
-#tabs .tab.terminal-tab .title {
+/* terminal pills look like notebook tabs, with a keyboard glyph — used in the editor tab strip
+   (when the terminal is embedded as a tab) and in the terminal panel's own tab strip */
+.tab.terminal-tab .title {
     display: inline-flex;
     align-items: center;
 }
@@ -482,24 +483,32 @@ body.resizing #frames iframe {
     font-size: 0.95em;
 }
 
-/* the "+" at the end of the tab strip opens a new terminal tab */
-#tabs .new-terminal-tab {
+/* the "⌨ +" button that opens a new terminal */
+.new-terminal-tab {
     flex-shrink: 0;
-    background: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    background-color: var(--main-bg-color);
     border: none;
     color: inherit;
     font: inherit;
-    font-size: 1.05rem;
+    font-size: 0.85rem;
     line-height: 1;
-    opacity: 0.45;
+    opacity: 0.75;
     cursor: pointer;
-    padding: 0.25rem 0.6rem;
+    padding: 0.38rem 0.7rem;
     border-radius: 1000px;
-    transition: opacity 0.08s linear, background-color 0.08s linear;
+    transition: opacity 0.08s linear, box-shadow 0.08s linear;
 }
-#tabs .new-terminal-tab:hover {
+.new-terminal-tab:hover {
     opacity: 1;
-    background-color: var(--main-bg-color);
+    box-shadow: inset 0 0 0 1.5px var(--cm-color-builtin, #5e7be1);
+}
+.new-terminal-tab .nt-plus {
+    font-size: 0.95em;
+    opacity: 0.85;
+    margin-left: -0.05rem;
 }
 
 #frames {
@@ -1009,38 +1018,108 @@ body.resizing-v #frames iframe {
     pointer-events: none;
 }
 
+/* the terminal panel (bottom/right dock) and the embedded editor "Terminal" pane share the same
+   terminals UI: a tab strip of terminals + their bodies */
 #terminal-panel {
     flex-shrink: 0;
-    padding: 0.6rem !important;
+    padding: 0 !important;
     overflow: hidden;
     box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
 }
 
-#terminal-panel .terminal-host {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    border-radius: 0.4rem;
+/* "tab" dock — the terminal lives inside an editor tab; the editor fills the split */
+.main-split.tab {
+    flex-direction: column;
 }
-
-#terminal-panel .xterm {
-    height: 100%;
-    padding: 0.2rem;
-}
-
-/* a terminal living in a TAB pane — same machinery as the docked terminal */
-#frames .pane.terminal-pane {
-    padding: 0.6rem;
-    box-sizing: border-box;
+#frames .terminal-area-pane.active {
+    display: flex;
+    flex-direction: column;
     background-color: var(--main-bg-color);
 }
-#frames .terminal-pane .terminal-host {
+
+.terminal-tabs {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0.45rem 0.55rem 0.3rem;
+    overflow: hidden;
+}
+.terminal-tab-scroller {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: 0.15rem 0;
+}
+.terminal-tabs .tab {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    max-width: 13rem;
+    border-radius: 1000px;
+    background-color: var(--code-background);
+    opacity: 0.7;
+    transition: opacity 0.08s linear, box-shadow 0.08s linear;
+}
+.terminal-tabs .tab:hover {
+    opacity: 1;
+}
+.terminal-tabs .tab.active {
+    opacity: 1;
+    box-shadow: inset 0 0 0 2px var(--cm-color-builtin, #5e7be1);
+}
+.terminal-tabs .tab .title {
+    background: none;
+    border: none;
+    color: inherit;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 0.3rem 0.1rem 0.3rem 0.7rem;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: inline-flex;
+    align-items: center;
+}
+.terminal-tabs .tab .close {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 0.3rem 0.55rem 0.3rem 0.25rem;
+}
+.terminal-tabs .tab .close:hover {
+    opacity: 1;
+}
+
+.terminal-bodies {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+}
+.terminal-body {
+    position: absolute;
+    inset: 0 0.6rem 0.6rem;
+    display: none;
+}
+.terminal-body.active {
+    display: block;
+}
+.terminal-body .terminal-host {
     width: 100%;
     height: 100%;
     overflow: hidden;
     border-radius: 0.4rem;
 }
-#frames .terminal-pane .xterm {
+.terminal-body .xterm {
     height: 100%;
     padding: 0.2rem;
 }

@@ -41,16 +41,14 @@ const remember_workspace = (path) => {
     localStorage.setItem(RECENT_KEY, JSON.stringify([path, ...get_recent_workspaces().filter((p) => p !== path)].slice(0, 8)))
 }
 
-// Terminal tabs persist across reloads: their shells live on the server (keyed by tid), so we
-// remember each tab's tid + label and reattach on load — same idea as the docked terminal.
-const TERMINAL_TABS_KEY = "plutoland terminal tabs"
-const restore_terminal_tabs = () => {
+// Terminals live in the terminal panel as their own tabs. Their shells persist on the server
+// (keyed by tid), so we remember each terminal's tid + label and reattach on reload.
+const TERMINALS_KEY = "plutoland terminals"
+const restore_terminals = () => {
     try {
-        const saved = JSON.parse(localStorage.getItem(TERMINAL_TABS_KEY) ?? "[]")
+        const saved = JSON.parse(localStorage.getItem(TERMINALS_KEY) ?? "[]")
         if (!Array.isArray(saved)) return []
-        return saved
-            .filter((t) => t && t.kind === "terminal" && typeof t.tid === "string")
-            .map((t) => ({ id: t.id, kind: "terminal", tid: t.tid, label: t.label ?? "Terminal", path: t.label ?? "Terminal" }))
+        return saved.filter((t) => t && typeof t.tid === "string").map((t) => ({ tid: t.tid, label: t.label ?? "Terminal" }))
     } catch {
         return []
     }
@@ -455,13 +453,8 @@ const Land = () => {
     const [workspace, set_workspace] = useState(/** @type {{root: String, entries: Array}?} */ (null))
     const [no_workspace, set_no_workspace] = useState(false)
     const [running, set_running] = useState(/** @type {Array<{notebook_id: String, path: String}>} */ ([]))
-    const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String, kind?: String, tid?: String, label?: String}>} */ (() => restore_terminal_tabs()))
-    const [active, set_active] = useState(
-        /** @type {String?} */ (() => {
-            const r = restore_terminal_tabs()
-            return r.length ? r[r.length - 1].id : null
-        })
-    )
+    const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String, kind?: String}>} */ ([]))
+    const [active, set_active] = useState(/** @type {String?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
     const [sidebar_width, set_sidebar_width] = useState(() => Number(localStorage.getItem("plutoland sidebar width")) || 290)
     const [sidebar_hidden, set_sidebar_hidden] = useState(() => localStorage.getItem("plutoland sidebar hidden") === "true")
@@ -474,23 +467,18 @@ const Land = () => {
     const [show_opener, set_show_opener] = useState(false)
     const auto_tabbed = useRef(false)
 
-    // The docked terminal keeps one persistent shell (tid in localStorage). Terminal *tabs* each
-    // own their own tid (restored above); `terminal_seq` numbers new ones ("Terminal N").
-    const docked_tid = useRef(/** @type {String?} */ (null))
-    if (docked_tid.current == null) {
-        let t = localStorage.getItem("plutoland terminal id")
-        if (t == null) {
-            t = "dock-" + Math.random().toString(36).slice(2, 12)
-            localStorage.setItem("plutoland terminal id", t)
-        }
-        docked_tid.current = t
-    }
+    // Terminals are tabs INSIDE the terminal panel (like VS Code). Each is a persistent shell
+    // keyed by tid; the list + active terminal are restored on reload. `terminal_seq` numbers them.
+    const [terminals, set_terminals] = useState(/** @type {Array<{tid: String, label: String}>} */ (() => restore_terminals()))
+    const [active_terminal, set_active_terminal] = useState(
+        /** @type {String?} */ (() => {
+            const r = restore_terminals()
+            return r.length ? r[r.length - 1].tid : null
+        })
+    )
     const terminal_seq = useRef(/** @type {Number} */ (-1))
     if (terminal_seq.current < 0) {
-        const nums = tabs
-            .filter((t) => t.kind === "terminal")
-            .map((t) => parseInt(String(t.label ?? "").replace(/[^0-9]/g, ""), 10))
-            .filter((x) => !isNaN(x))
+        const nums = terminals.map((t) => parseInt(String(t.label ?? "").replace(/[^0-9]/g, ""), 10)).filter((x) => !isNaN(x))
         terminal_seq.current = nums.length ? Math.max(...nums) : 0
     }
 
@@ -504,11 +492,8 @@ const Land = () => {
     }, [sidebar_width, sidebar_hidden, terminal_open, terminal_height, terminal_width, terminal_dock])
 
     useEffect(() => {
-        localStorage.setItem(
-            TERMINAL_TABS_KEY,
-            JSON.stringify(tabs.filter((t) => t.kind === "terminal").map((t) => ({ id: t.id, kind: "terminal", tid: t.tid, label: t.label })))
-        )
-    }, [tabs])
+        localStorage.setItem(TERMINALS_KEY, JSON.stringify(terminals.map((t) => ({ tid: t.tid, label: t.label }))))
+    }, [terminals])
 
     const start_terminal_resize = useCallback(
         (e) => {
@@ -543,14 +528,26 @@ const Land = () => {
         [add_tab]
     )
 
-    const new_terminal_tab = useCallback(() => {
+    const new_terminal = useCallback(() => {
         terminal_seq.current += 1
-        const tid = "tab-" + Math.random().toString(36).slice(2, 12)
-        const id = `terminal:${tid}`
-        const label = `Terminal ${terminal_seq.current}`
-        set_tabs((tabs) => [...tabs, { id, kind: "terminal", tid, label, path: label }])
-        set_active(id)
+        const tid = "term-" + Math.random().toString(36).slice(2, 12)
+        set_terminals((ts) => [...ts, { tid, label: `Terminal ${terminal_seq.current}` }])
+        set_active_terminal(tid)
+        set_terminal_open(true)
     }, [])
+
+    const close_terminal = useCallback((tid) => {
+        set_terminals((ts) => {
+            const remaining = ts.filter((t) => t.tid !== tid)
+            set_active_terminal((a) => (a === tid ? (remaining.length ? remaining[remaining.length - 1].tid : null) : a))
+            return remaining
+        })
+    }, [])
+
+    // opening the terminal panel with no terminals yet spins up the first one
+    useEffect(() => {
+        if (terminal_open && terminals.length === 0) new_terminal()
+    }, [terminal_open])
 
 
     const refresh = useCallback(async () => {
@@ -712,6 +709,55 @@ const Land = () => {
         [close_tab, refresh]
     )
 
+    // The terminal area can live in three places (its "dock"): bottom, right, or embedded as an
+    // editor tab. `__terminal__` is the synthetic editor-tab id used in "tab" mode.
+    const tab_mode = terminal_open && terminal_dock === "tab"
+
+    const toggle_terminal = useCallback(() => {
+        const next = !terminal_open
+        set_terminal_open(next)
+        if (next && terminal_dock === "tab") set_active("__terminal__")
+        if (!next) set_active((a) => (a === "__terminal__" ? null : a))
+    }, [terminal_open, terminal_dock])
+
+    const cycle_dock = useCallback(() => {
+        const next = terminal_dock === "bottom" ? "right" : terminal_dock === "right" ? "tab" : "bottom"
+        if (next === "tab") {
+            set_terminal_open(true)
+            set_active("__terminal__")
+        } else if (terminal_dock === "tab") {
+            set_active((a) => (a === "__terminal__" ? null : a))
+        }
+        set_terminal_dock(next)
+    }, [terminal_dock])
+
+    // the terminals UI (a tab strip of terminals + their bodies); rendered either in the docked
+    // panel or inside the editor "Terminal" tab. `shown` gates which shell is live/painted.
+    const render_terminals = (shown) => html`
+        <div class="terminal-tabs">
+            <div class="terminal-tab-scroller">
+                ${terminals.map(
+                    (t) => html`<div class="tab terminal-tab ${t.tid === active_terminal ? "active" : ""}" key=${t.tid}>
+                        <button class="title" title=${t.label} onClick=${() => set_active_terminal(t.tid)}>
+                            <span class="tab-term-icon">⌨</span>${t.label}
+                        </button>
+                        <button class="close" title="Close terminal" onClick=${() => close_terminal(t.tid)}>×</button>
+                    </div>`
+                )}
+                <button class="new-terminal-tab" title="New terminal" onClick=${new_terminal}>
+                    <span class="nt-icon">⌨</span><span class="nt-plus">＋</span>
+                </button>
+            </div>
+        </div>
+        <div class="terminal-bodies">
+            ${terminals.map(
+                (t) => html`<div key=${t.tid} class="terminal-body ${t.tid === active_terminal ? "active" : ""}">
+                    <${TerminalView} tid=${t.tid} visible=${shown && t.tid === active_terminal} />
+                </div>`
+            )}
+        </div>
+    `
+
     // the opener shows on first load (no workspace yet) and on demand (switching workspaces)
     if (no_workspace || show_opener) {
         return html`<${WorkspaceOpener}
@@ -784,48 +830,54 @@ const Land = () => {
                     <div class="editor-card">
                         <nav id="tabs">
                             <div class="tab-scroller">
-                                ${tabs.map((t) =>
-                                    t.kind === "terminal"
-                                        ? html`<div class="tab terminal-tab ${t.id === active ? "active" : ""}" key=${t.id}>
-                                              <button class="title" title=${t.label} onClick=${() => set_active(t.id)}>
-                                                  <span class="tab-term-icon">⌨</span>${t.label}
-                                              </button>
-                                              <button class="close" title="Close terminal tab" onClick=${() => close_tab(t.id)}>×</button>
-                                          </div>`
-                                        : html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
-                                              <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
-                                              <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
-                                          </div>`
+                                ${tabs.map(
+                                    (t) => html`<div class="tab ${t.id === active ? "active" : ""}" key=${t.id}>
+                                        <button class="title" title=${t.path} onClick=${() => set_active(t.id)}>${basename(t.path)}</button>
+                                        <button class="close" title="Close tab (notebook keeps running)" onClick=${() => close_tab(t.id)}>×</button>
+                                    </div>`
                                 )}
-                                <button class="new-terminal-tab" title="New terminal tab" onClick=${new_terminal_tab}>＋</button>
+                                ${tab_mode
+                                    ? html`<div class="tab terminal-tab ${active === "__terminal__" ? "active" : ""}" key="__terminal__">
+                                          <button class="title" title="Terminal" onClick=${() => set_active("__terminal__")}>
+                                              <span class="tab-term-icon">⌨</span>Terminal
+                                          </button>
+                                          <button class="close" title="Hide terminal" onClick=${() => {
+        set_terminal_open(false)
+        set_active((a) => (a === "__terminal__" ? null : a))
+    }}>×</button>
+                                      </div>`
+                                    : null}
                             </div>
-                            <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${() =>
-        set_terminal_open(!terminal_open)}>⌨ Terminal</button>
+                            <button class="terminal-toggle ${terminal_open ? "active" : ""}" title="Toggle the integrated terminal (runs in the workspace folder)" onClick=${toggle_terminal}>⌨ Terminal</button>
                             ${terminal_open
                                 ? html`<button
                                       class="terminal-toggle dock-toggle"
-                                      title=${terminal_dock === "bottom" ? "Dock terminal to the right" : "Dock terminal to the bottom"}
-                                      onClick=${() => set_terminal_dock(terminal_dock === "bottom" ? "right" : "bottom")}
+                                      title=${terminal_dock === "bottom"
+                                          ? "Move terminal to the right"
+                                          : terminal_dock === "right"
+                                            ? "Embed terminal as an editor tab"
+                                            : "Dock terminal to the bottom"}
+                                      onClick=${cycle_dock}
                                   >
-                                      ${terminal_dock === "bottom" ? "◨" : "⬓"}
+                                      ${terminal_dock === "bottom" ? "◨" : terminal_dock === "right" ? "▭" : "⬓"}
                                   </button>`
                                 : null}
                         </nav>
                         <div id="frames">
                             ${tabs.map((t) =>
-                                t.kind === "terminal"
-                                    ? // a terminal tab: the same xterm/PTY machinery as the docked terminal, in a tab pane
-                                      html`<div key=${t.id} class="pane terminal-pane ${t.id === active ? "active" : ""}">
-                                          <${TerminalView} tid=${t.tid} visible=${t.id === active} />
+                                t.kind === "file"
+                                    ? html`<div key=${t.id} class="pane ${t.id === active ? "active" : ""}">
+                                          <${FileEditorPane} path=${t.path} visible=${t.id === active} />
                                       </div>`
-                                    : t.kind === "file"
-                                      ? html`<div key=${t.id} class="pane ${t.id === active ? "active" : ""}">
-                                            <${FileEditorPane} path=${t.path} visible=${t.id === active} />
-                                        </div>`
-                                      : // every notebook tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
-                                        html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
+                                    : // every notebook tab is the stock Pluto editor; iframes stay mounted so switching tabs never loses state
+                                      html`<iframe key=${t.id} src=${`./edit?id=${t.id}`} class=${t.id === active ? "active" : ""}></iframe>`
                             )}
-                            ${tabs.length === 0
+                            ${tab_mode
+                                ? html`<div class="pane terminal-area-pane ${active === "__terminal__" ? "active" : ""}">
+                                      ${render_terminals(tab_mode && active === "__terminal__")}
+                                  </div>`
+                                : null}
+                            ${tabs.length === 0 && active !== "__terminal__"
                                 ? html`<div class="empty-state">
                                       <p>Open a notebook from the workspace on the left, or create a new one.</p>
                                       <p class="hint">Agents can work here too: edit any notebook file, or use <code>pluto-collab</code>.</p>
@@ -835,17 +887,21 @@ const Land = () => {
                     </div>
                     ${terminal_ever_opened.current
                         ? html`
-                              <div id="terminal-resizer" style=${terminal_open ? "" : "display: none"} onPointerDown=${start_terminal_resize}></div>
+                              <div
+                                  id="terminal-resizer"
+                                  style=${terminal_open && terminal_dock !== "tab" ? "" : "display: none"}
+                                  onPointerDown=${start_terminal_resize}
+                              ></div>
                               <div
                                   id="terminal-panel"
                                   class="bubble"
-                                  style=${terminal_open
+                                  style=${terminal_open && terminal_dock !== "tab"
                                       ? terminal_dock === "bottom"
                                           ? `height: ${terminal_height}px`
                                           : `width: ${terminal_width}px`
                                       : "display: none"}
                               >
-                                  <${TerminalView} tid=${docked_tid.current} visible=${terminal_open} />
+                                  ${terminal_dock !== "tab" ? render_terminals(terminal_open && terminal_dock !== "tab") : null}
                               </div>
                           `
                         : null}
