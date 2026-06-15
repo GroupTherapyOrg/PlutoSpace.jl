@@ -285,7 +285,7 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
  *  bytes as binary frames. The shell starts in the workspace folder and PERSISTS on the server by
  *  `tid` — so reattaching (a tab switch, a reload) replays scrollback. Used by both the docked
  *  terminal and each terminal tab; the only difference is which `tid` they own. */
-const TerminalView = ({ tid, visible }) => {
+const TerminalView = ({ tid, cwd, visible }) => {
     const node_ref = useRef(null)
     const started = useRef(false)
 
@@ -312,7 +312,10 @@ const TerminalView = ({ tid, visible }) => {
             term.open(node_ref.current)
             fit.fit()
             const proto = window.location.protocol === "https:" ? "wss" : "ws"
-            const socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}`)
+            // Open the shell in the workspace the client is showing (local or ssh-remote), not wherever
+            // the server happened to launch. The server falls back to its workspace_folder if omitted.
+            const cwd_param = cwd ? `&cwd=${encodeURIComponent(cwd)}` : ""
+            const socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}`)
             socket.binaryType = "arraybuffer"
             socket.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data))
             socket.onopen = () => socket.send(`1:${term.rows},${term.cols}`)
@@ -752,7 +755,7 @@ const Land = () => {
         <div class="terminal-bodies">
             ${terminals.map(
                 (t) => html`<div key=${t.tid} class="terminal-body ${t.tid === active_terminal ? "active" : ""}">
-                    <${TerminalView} tid=${t.tid} visible=${shown && t.tid === active_terminal} />
+                    <${TerminalView} tid=${t.tid} cwd=${workspace?.root} visible=${shown && t.tid === active_terminal} />
                 </div>`
             )}
         </div>

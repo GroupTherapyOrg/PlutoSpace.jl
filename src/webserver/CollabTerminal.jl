@@ -24,6 +24,7 @@ mutable struct CollabTerminal
     clients::Set{Any}
     lock::ReentrantLock
     pump::Task
+    cwd::String   # the folder this shell was started in — so we can tell when the workspace changed under it
 end
 
 const COLLAB_TERMINALS = Dict{String,CollabTerminal}()
@@ -32,10 +33,30 @@ const COLLAB_TERMINALS_LOCK = ReentrantLock()
 "Shell-quote a path for `sh -c`."
 _shquote(s::String) = "'" * replace(s, "'" => "'\\''") * "'"
 
-function _spawn_workspace_shell(session::ServerSession)
-    dir = let w = session.options.server.workspace_folder
-        w !== nothing && isdir(tamepath(w)) ? tamepath(w) : homedir()
+"""
+Resolve the directory an integrated terminal should open in. Preference order:
+
+ 1. a directory the client explicitly asked for — the workspace root it is *currently showing*.
+    This is what makes the terminal follow the open workspace, whether that's a local folder or an
+    ssh-remote one (the remote's own Land page reports the remote root), and it is robust against the
+    shell having been spawned before the workspace was set;
+ 2. the server's current `workspace_folder`;
+ 3. the user's home directory, as a last resort.
+
+Anything that isn't an existing directory is skipped.
+"""
+function _resolve_terminal_cwd(session::ServerSession, requested::Union{Nothing,AbstractString})::String
+    for cand in (requested, session.options.server.workspace_folder)
+        cand === nothing && continue
+        s = String(cand)
+        isempty(s) && continue
+        p = tamepath(s)
+        isdir(p) && return p
     end
+    homedir()
+end
+
+function _spawn_workspace_shell(session::ServerSession, dir::String)
     shell = get(ENV, "SHELL", Sys.isapple() ? "/bin/zsh" : "/bin/bash")
 
     # Make this terminal "just work" for any CLI coding agent: the live server's port + secret
@@ -61,14 +82,28 @@ function _spawn_workspace_shell(session::ServerSession)
 end
 
 "Get the live terminal for this id, or (re)create one. The pump task forwards PTY output to every attached socket and maintains the scrollback ring."
-function _get_or_create_terminal(session::ServerSession, tid::String)::CollabTerminal
+function _get_or_create_terminal(session::ServerSession, tid::String; requested_cwd::Union{Nothing,AbstractString}=nothing)::CollabTerminal
     lock(COLLAB_TERMINALS_LOCK) do
+        target = _resolve_terminal_cwd(session, requested_cwd)
         existing = get(COLLAB_TERMINALS, tid, nothing)
         if existing !== nothing && pty_alive(existing.pty)
-            return existing
+            # Reattach to the persistent shell — UNLESS the client is now showing a different
+            # workspace than this shell was started in (the user switched/opened a workspace, or
+            # the shell predates the workspace being set). Then the shell is in the wrong folder:
+            # retire it and start fresh in the open workspace below. A connect that doesn't name a
+            # cwd never disturbs a running shell.
+            if requested_cwd === nothing || existing.cwd == target
+                return existing
+            end
+            delete!(COLLAB_TERMINALS, tid)
+            stale = existing
+            @async try
+                pty_close!(stale.pty)
+            catch
+            end
         end
 
-        t = CollabTerminal(_spawn_workspace_shell(session), UInt8[], Set{Any}(), ReentrantLock(), @async(nothing))
+        t = CollabTerminal(_spawn_workspace_shell(session, target), UInt8[], Set{Any}(), ReentrantLock(), @async(nothing), target)
         t.pump = @asynclog begin
             for data in t.pty.output
                 lock(t.lock) do
@@ -105,7 +140,8 @@ end
 
 function handle_terminal_websocket(ws, session::ServerSession, query::Dict{String,String})
     tid = get(query, "tid", "default")
-    t = _get_or_create_terminal(session, tid)
+    cwd = get(query, "cwd", "")  # the workspace root the client is showing — the shell opens here
+    t = _get_or_create_terminal(session, tid; requested_cwd=(isempty(cwd) ? nothing : cwd))
 
     # attach: replay recent scrollback so the terminal isn't blank after a refresh, then subscribe
     lock(t.lock) do
