@@ -1,8 +1,9 @@
 <div align="center">
 
-<img src="frontend/img/plutospace.svg" width="120" alt="PlutoSpace">
-
-# PlutoSpace.jl
+<h1>
+<img src="frontend/img/plutospace.svg" width="48" align="middle" alt="">
+&nbsp;PlutoSpace.jl
+</h1>
 
 ### A workspace for Pluto notebooks — built for humans and agents, *together.*
 

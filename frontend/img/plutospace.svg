@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!-- PlutoSpace: the same three circles as Pluto's mark (identical fills, strokes, radii,
      and overlap ratio) — rearranged from a floating stack into a mound. The dots, landed. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 132" width="132" height="132">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="34 42 64 64" width="64" height="64">
   <circle cx="54" cy="84" r="16.5" fill="#aa7dc0" stroke="#945bb0" stroke-width="3"/>
   <circle cx="78" cy="84" r="16.5" fill="#d66661" stroke="#c93d39" stroke-width="3"/>
   <circle cx="66" cy="63" r="16.5" fill="#6bab5b" stroke="#3b972e" stroke-width="3"/>
