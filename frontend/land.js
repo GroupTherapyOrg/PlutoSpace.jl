@@ -813,6 +813,22 @@ const Land = () => {
         </div>
     `
 
+    // Shut the whole server down from the UI — the terminal-independent way out (the launching
+    // terminal may be gone or ssh'd away). The server answers, then stops itself a beat later.
+    const shutdown_server = useCallback(async () => {
+        if (
+            !window.confirm(
+                "Shut down the PlutoSpace server?\n\nRunning notebooks and the integrated terminal will stop. SSH remote servers keep running and can be reattached later."
+            )
+        )
+            return
+        try {
+            await fetch("./api/v1/shutdown", { method: "POST" })
+        } catch (e) {}
+        document.body.innerHTML =
+            '<div style="font: 15px/1.6 system-ui, sans-serif; padding: 3rem; text-align: center; color: #888">PlutoSpace has shut down. You can close this tab.</div>'
+    }, [])
+
     // the opener shows on first load (no workspace yet) and on demand (switching workspaces)
     if (no_workspace || show_opener) {
         return html`<${WorkspaceOpener}
@@ -834,6 +850,7 @@ const Land = () => {
                         </div>
                         <div class="header-buttons">
                             <button class="header-button" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>
+                            <button class="header-button shutdown-button" title="Shut down the PlutoSpace server" onClick=${shutdown_server}>⏻</button>
                             <button class="header-button" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}>⟨</button>
                         </div>
                     </div>

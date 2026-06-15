@@ -104,8 +104,24 @@ function Base.wait(ssc::RunningPlutoServer)
         Base.close(ssc)
         (e isa InterruptException) || rethrow(e)
     end
-    
+
     nothing
+end
+
+# Set once the server is listening, so a UI "Shut down" action can stop it without needing Ctrl+C
+# in the launching terminal (the whole point: that terminal may be gone, or ssh'd away).
+const RUNNING_HTTP_SERVER = Ref{Any}(nothing)
+
+"""
+Stop the running PlutoSpace server cleanly. Closing the listen socket fires HTTP.jl's `on_shutdown`
+(notebooks, registry file) and unblocks `wait(::RunningPlutoServer)`, so a CLI launch returns and the
+process exits; a library/REPL launch simply returns from `run`. Done async so the caller (an HTTP
+handler) can finish responding first.
+"""
+function request_server_shutdown()
+    srv = RUNNING_HTTP_SERVER[]
+    srv === nothing && return
+    @async swallow_exception(() -> close(srv), Exception)
 end
 
 """
@@ -166,6 +182,11 @@ function run!(session::ServerSession)
         # Triggered by HTTP.jl
         @info("\nClosing PlutoSpace... Restart Julia for a fresh session. \n\nHave a nice day! 🎈🏝\n\n")
         remove_collab_registry_file(port)
+        # tear down any SSH remote tunnels so the `ssh -N -L` children don't orphan onto the terminal
+        try
+            close_all_remote_tunnels()
+        catch
+        end
         # TODO: put do_work tokens back
         @async swallow_exception(() -> close(serversocket), Base.IOError)
         for client in values(session.connected_clients)
@@ -322,6 +343,9 @@ function run!(session::ServerSession)
             end
         end
     end
+
+    # expose the live server so the UI "Shut down" action can stop it without Ctrl+C in the terminal
+    RUNNING_HTTP_SERVER[] = server
 
     server_running() =
         try

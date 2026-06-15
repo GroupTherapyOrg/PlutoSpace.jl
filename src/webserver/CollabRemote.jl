@@ -253,7 +253,11 @@ function _remote_connect_task!(r::RemoteSession)
         local_port, probe_server = Sockets.listenany(Sockets.localhost, 45200)
         close(probe_server)
         local_port = Int(local_port)
-        r.tunnel = Base.run(pipeline(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; stderr=devnull); wait=false)
+        # `-n` + stdin=devnull keep the tunnel ssh OFF the launching terminal's stdin: a backgrounded
+        # `ssh -N` otherwise fights the shell for the terminal, so quitting the server (or just having a
+        # remote open) can leave that terminal "disconnected". stdout→devnull too — we only watch
+        # process_exited and the /ping probe, never the tunnel's streams.
+        r.tunnel = Base.run(pipeline(`ssh -n -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; stdin=devnull, stdout=devnull, stderr=devnull); wait=false)
         ok = false
         for _ in 1:20
             sleep(1)
@@ -284,6 +288,24 @@ function _remote_connect_task!(r::RemoteSession)
     catch e
         r.state = "error"
         r.detail = sprint(showerror, e)
+    end
+end
+
+"""
+Kill every live SSH tunnel. Called on server shutdown so the `ssh -N -L` children don't orphan
+onto the launching terminal. The REMOTE servers themselves are intentionally left running — they
+persist and reattach (the tmux-without-tmux design), so quitting locally never loses remote work.
+"""
+function close_all_remote_tunnels()
+    lock(REMOTE_SESSIONS_LOCK) do
+        for r in values(REMOTE_SESSIONS)
+            t = r.tunnel
+            t === nothing && continue
+            try
+                process_exited(t) || kill(t)
+            catch
+            end
+        end
     end
 end
 
@@ -336,4 +358,26 @@ function register_collab_remote!(router, session::ServerSession)
         HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], remote_status_json(r))
     end
     HTTP.register!(router, "GET", "/api/v1/remote/status", serve_remote_status)
+
+    # Shut the whole server down cleanly from the UI — the terminal-independent way out. Behind the
+    # normal secret (auth_middleware gates /api/v1/*). Respond FIRST, then tear down on a short delay
+    # so the 200 reaches the browser: close SSH tunnels, then stop the HTTP server (which fires
+    # on_shutdown — notebooks, registry file — and unblocks `wait`, so a CLI launch exits).
+    function serve_shutdown(request::HTTP.Request)
+        @info "Shutdown requested from the PlutoSpace UI"
+        @async begin
+            sleep(0.4)
+            try
+                close_all_remote_tunnels()
+            catch
+            end
+            try
+                request_server_shutdown()
+            catch e
+                @warn "server shutdown failed" exception = (e, catch_backtrace())
+            end
+        end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(Pair["status" => "shutting_down"]) * "\n")
+    end
+    HTTP.register!(router, "POST", "/api/v1/shutdown", serve_shutdown)
 end

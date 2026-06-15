@@ -121,6 +121,11 @@ body.resizing #frames iframe {
     background-color: var(--main-bg-color);
 }
 
+/* the shutdown (power) button reads as destructive on hover */
+#land .header-button.shutdown-button:hover {
+    color: #e06c6c;
+}
+
 #sidebar-reopen {
     align-self: flex-start;
     flex-shrink: 0;
