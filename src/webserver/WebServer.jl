@@ -118,6 +118,11 @@ function run(session::ServerSession)
 end
 
 function run!(session::ServerSession)
+    # Before we spawn ANY notebook worker or integrated terminal, drop the Pkg-app launcher's
+    # JULIA_LOAD_PATH pin so those children honor their own `--project=` / Pkg.activate instead of
+    # inheriting PlutoSpace's private app environment. (No-op for library use and SSH remotes; see
+    # neutralize_app_load_path_pin!.)
+    neutralize_app_load_path_pin!()
     if is_first_run[]
         is_first_run[] = false
         @info "Loading..."

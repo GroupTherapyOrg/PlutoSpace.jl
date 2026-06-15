@@ -21,6 +21,46 @@ const PLUTO_COLLAB_SCRIPT = isfile(_PLUTO_COLLAB_PATH) ? read(_PLUTO_COLLAB_PATH
 apps_bin_dir() = joinpath(first(DEPOT_PATH), "bin")
 
 """
+    neutralize_app_load_path_pin!()
+
+The `Pkg.Apps` launcher shim for `plutospace` exports
+
+    JULIA_LOAD_PATH=<depot>/environments/apps/PlutoSpace
+
+so that `julia -m PlutoSpace` boots the server with its *own* dependencies. That is correct for
+booting us — but the variable is then inherited by every process the server spawns: notebook
+workers (via Malt) and the integrated terminal (which copies our `ENV`). A `JULIA_LOAD_PATH` set to
+a single explicit environment drops Julia's default `@` (active project) and `@stdlib` entries, so
+inside those children `--project=` / `Pkg.activate` is silently ignored by `using`, and
+`Pkg.instantiate` resolves against PlutoSpace's internals instead of the user's own project.
+(PlutoRunner is loaded into workers through its own boot environment — see `runner/Loader.jl` — so
+dropping this pin does **not** affect worker startup; it only stops non-nbpkg notebooks and the
+terminal from inheriting our private env.)
+
+Our own `LOAD_PATH` is already materialized in memory, so clearing the *environment variable* here —
+once, at startup, before anything is spawned — is a no-op for the running server and lets children
+inherit Julia's normal default load path.
+
+Only the app shim's pin is neutralized:
+- a `JULIA_LOAD_PATH` the user set themselves keeps the default tokens (`@`, ``, `@stdlib`, …) and
+  is left untouched;
+- the SSH-remote server is launched with `julia --project=…` (a CLI flag, not an exported env var),
+  so it has no pin to clear and this is a no-op there too.
+"""
+function neutralize_app_load_path_pin!()
+    lp = get(ENV, "JULIA_LOAD_PATH", nothing)
+    lp === nothing && return
+    entries = split(lp, Sys.iswindows() ? ';' : ':')
+    # Any default/special token (`@`, empty = "expand default", `@stdlib`, `@v#.#`, `@named`) means
+    # the active project is still on the load path — not the bug, and likely user-controlled.
+    any(e -> isempty(e) || startswith(e, "@"), entries) && return
+    # The Pkg.Apps shim is the only thing that pins a lone app environment (…/environments/apps/…).
+    occursin(joinpath("environments", "apps"), lp) || return
+    delete!(ENV, "JULIA_LOAD_PATH")
+    return
+end
+
+"""
     ensure_pluto_collab_installed() -> String | Nothing
 
 Drop the bundled `pluto-collab` CLI next to the `plutospace` app so it's on PATH everywhere
