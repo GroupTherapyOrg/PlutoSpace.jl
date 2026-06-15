@@ -161,7 +161,10 @@ function handle_terminal_websocket(ws, session::ServerSession, query::Dict{Strin
                     if length(parts) == 2
                         rows = tryparse(Int, parts[1])
                         cols = tryparse(Int, parts[2])
-                        if rows !== nothing && cols !== nothing && 0 < rows < 1000 && 0 < cols < 1000
+                        # Floor the size: a hidden/animating client can briefly compute a degenerate
+                        # tiny geometry, and resizing the PTY to it reflows the shell to a sliver (the
+                        # output then sticks in scrollback). No real terminal is usefully this small.
+                        if rows !== nothing && cols !== nothing && 1 < rows < 1000 && 9 < cols < 1000
                             pty_resize!(t.pty, rows, cols)
                         end
                     end

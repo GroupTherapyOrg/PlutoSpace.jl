@@ -288,9 +288,34 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
 const TerminalView = ({ tid, cwd, visible }) => {
     const node_ref = useRef(null)
     const started = useRef(false)
+    const fit_ref = useRef(null)
+    const refit_timer = useRef(null)
+
+    // Fit ONLY when the host is genuinely on-screen at a real size, and debounced so a panel that
+    // is animating open settles before we measure. Fitting a hidden tab (display:none → 0px) makes
+    // xterm clamp to its minimum 2 columns and ship that to the PTY — which is exactly what leaves a
+    // backgrounded terminal reattaching wrapped to a sliver. The guard makes a hide a no-op.
+    const refit = useCallback(() => {
+        clearTimeout(refit_timer.current)
+        refit_timer.current = setTimeout(() => {
+            const node = node_ref.current
+            const fit = fit_ref.current
+            if (node == null || fit == null) return
+            if (node.offsetParent === null || node.clientWidth < 24 || node.clientHeight < 24) return
+            try {
+                fit.fit()
+            } catch {}
+        }, 120)
+    }, [])
 
     useEffect(() => {
-        if (!visible || started.current || node_ref.current == null) return
+        if (!visible) return
+        // returning to this tab (or first reveal of an already-started one): re-measure once painted
+        if (started.current) {
+            refit()
+            return
+        }
+        if (node_ref.current == null) return
         started.current = true
         ;(async () => {
             const [{ Terminal }, { FitAddon }] = await Promise.all([
@@ -302,6 +327,7 @@ const TerminalView = ({ tid, cwd, visible }) => {
                 fontSize: 13,
                 fontFamily: "JuliaMono, SFMono-Regular, Menlo, Consolas, monospace",
                 cursorBlink: true,
+                scrollback: 5000,
                 theme: {
                     background: styles.getPropertyValue("--code-background").trim() || "#1f1f1f",
                     foreground: styles.getPropertyValue("--pluto-output-color").trim() || "#dddddd",
@@ -309,8 +335,35 @@ const TerminalView = ({ tid, cwd, visible }) => {
             })
             const fit = new FitAddon()
             term.loadAddon(fit)
+            fit_ref.current = fit
             term.open(node_ref.current)
-            fit.fit()
+
+            // Copy/paste: Cmd/Ctrl+C copies when there is a selection (otherwise it falls through to the
+            // shell as SIGINT); Cmd+V — and Ctrl+Shift+V — paste from the clipboard. (xterm already
+            // forwards a native browser paste to the shell; this adds the explicit shortcuts and the
+            // selection-aware copy that xterm does not do on its own.)
+            term.attachCustomKeyEventHandler((e) => {
+                if (e.type !== "keydown") return true
+                if ((e.metaKey || e.ctrlKey) && (e.key === "c" || e.key === "C") && term.hasSelection()) {
+                    navigator.clipboard?.writeText(term.getSelection()).catch(() => {})
+                    return false
+                }
+                if ((e.metaKey && e.key === "v") || (e.ctrlKey && e.shiftKey && (e.key === "v" || e.key === "V"))) {
+                    navigator.clipboard
+                        ?.readText()
+                        .then((t) => t && term.paste(t))
+                        .catch(() => {})
+                    return false
+                }
+                return true
+            })
+
+            // Measure after the webfont is ready, so the cell size (hence the column count) is correct.
+            try {
+                await document.fonts?.ready
+            } catch {}
+            refit()
+
             const proto = window.location.protocol === "https:" ? "wss" : "ws"
             // Open the shell in the workspace the client is showing (local or ssh-remote), not wherever
             // the server happened to launch. The server falls back to its workspace_folder if omitted.
@@ -318,18 +371,17 @@ const TerminalView = ({ tid, cwd, visible }) => {
             const socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}`)
             socket.binaryType = "arraybuffer"
             socket.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data))
-            socket.onopen = () => socket.send(`1:${term.rows},${term.cols}`)
+            socket.onopen = () => {
+                refit()
+                socket.send(`1:${term.rows},${term.cols}`)
+            }
             socket.onclose = () => term.write("\r\n\x1b[2m[disconnected — the shell is still running; reload to reattach]\x1b[0m\r\n")
             term.onData((d) => socket.readyState === WebSocket.OPEN && socket.send("0:" + d))
             term.onResize(({ rows, cols }) => socket.readyState === WebSocket.OPEN && socket.send(`1:${rows},${cols}`))
-            const ro = new ResizeObserver(() => {
-                try {
-                    fit.fit()
-                } catch {}
-            })
+            const ro = new ResizeObserver(() => refit())
             ro.observe(node_ref.current)
         })()
-    }, [visible])
+    }, [visible, refit])
 
     return html`<div class="terminal-host" ref=${node_ref}></div>`
 }
