@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!-- PlutoSpace: the same three circles as Pluto's mark (identical fills, strokes, radii,
-     and overlap ratio) — rearranged from a floating stack into a mound. The dots, landed. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="34 42 64 64" width="64" height="64">
+     and overlap ratio) — rearranged from a floating stack into a mound, with a small blue
+     twinkle (a hue Pluto's palette doesn't use) for the "space". The dots, landed. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="34 34 72 72" width="72" height="72">
   <circle cx="54" cy="84" r="16.5" fill="#aa7dc0" stroke="#945bb0" stroke-width="3"/>
   <circle cx="78" cy="84" r="16.5" fill="#d66661" stroke="#c93d39" stroke-width="3"/>
   <circle cx="66" cy="63" r="16.5" fill="#6bab5b" stroke="#3b972e" stroke-width="3"/>
+  <!-- blue twinkle + tiny sparkle, upper-right -->
+  <path d="M95 41.5 L96.7 48.3 L103.5 50 L96.7 51.7 L95 58.5 L93.3 51.7 L86.5 50 L93.3 48.3 Z" fill="#4f93e0"/>
+  <path d="M83 36.8 L83.7 39.3 L86.2 40 L83.7 40.7 L83 43.2 L82.3 40.7 L79.8 40 L82.3 39.3 Z" fill="#6aa8e6"/>
 </svg>
