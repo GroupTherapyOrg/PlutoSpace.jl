@@ -84,9 +84,11 @@ function _is_pluto_notebook_file(path::String)::Bool
     end
 end
 
-const _WORKSPACE_SKIPLIST = ("node_modules", "frontend-dist")
+# Dotfiles ARE shown (you want to see .gitignore, .github/, env files…); we only skip the few
+# entries that are pure noise or so large they'd blow the entry budget and bury real files.
+const _WORKSPACE_SKIPLIST = ("node_modules", "frontend-dist", ".git", ".DS_Store")
 
-"Recursive listing of a workspace folder as JSON-able pairs. Depth- and entry-budgeted; hidden files and bulky tool directories are skipped."
+"Recursive listing of a workspace folder as JSON-able pairs. Depth- and entry-budgeted; bulky tool directories (and .git) are skipped, but dotfiles are shown."
 function _workspace_entries(dir::String; depth::Int=6, budget::Ref{Int}=Ref(2000))
     entries = Vector{Pair}[]
     isdir(dir) || return entries
@@ -98,7 +100,6 @@ function _workspace_entries(dir::String; depth::Int=6, budget::Ref{Int}=Ref(2000
     # directories first, like every file browser
     for want_dir in (true, false), name in names
         budget[] <= 0 && break
-        startswith(name, ".") && continue
         name ∈ _WORKSPACE_SKIPLIST && continue
         p = joinpath(dir, name)
         isdir(p) == want_dir || continue
