@@ -36,12 +36,20 @@ const REMOTE_SESSIONS_LOCK = ReentrantLock()
 # ssh joins its argument vector into ONE space-separated string and the remote shell
 # re-splits it — so the command must be shell-quoted by US to survive the trip as a
 # single `bash -lc` argument. (Without this, `bash -lc rm -rf x` runs bare `rm`.)
+# LogLevel=ERROR mutes the SSH *client's* own chatter (the "Permanently added … to known
+# hosts" line, and OpenSSH 10's post-quantum "store now, decrypt later" warning) so it
+# neither scares the user in the terminal nor pollutes the output we parse. It does NOT
+# silence the remote command's own stderr, so real failures stay diagnosable. (A ProxyJump
+# hop reads its own config, not this flag — see _ssh_run, which also drops client stderr.)
 _ssh_command(host::String, cmd::String) =
-    `ssh -o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new $host -- bash -lc $(_shquote(cmd))`
+    `ssh -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR -o StrictHostKeyChecking=accept-new $host -- bash -lc $(_shquote(cmd))`
 
 "Run a command on the remote through a login shell (so juliaup/julia are on PATH). Keyed auth only."
 function _ssh_run(host::String, cmd::String)::String
-    read(_ssh_command(host, cmd), String)
+    # Drop the client's stderr: across the many polling calls a ProxyJump login node would
+    # otherwise reprint its post-quantum warning every time (LogLevel only reaches the final
+    # hop). Callers read stdout only and surface their own errors, so nothing useful is lost.
+    read(pipeline(_ssh_command(host, cmd); stderr=devnull), String)
 end
 
 "Like `_ssh_run`, but never throws: returns (ok, combined stdout+stderr) so failures are diagnosable."
@@ -157,11 +165,11 @@ function _remote_connect_task!(r::RemoteSession)
             if !install_done
                 r.state = "installing"
                 if !cloned
-                    r.detail = "first-time setup on $(r.host): cloning the fork (a minute or two)"
+                    r.detail = "first-time setup on $(r.host): cloning PlutoSpace (a minute or two)"
                     ok, out = _ssh_try(r.host, "rm -rf $(REMOTE_BOOTSTRAP_DIR) && mkdir -p ~/.plutospace && git clone --depth 1 --branch $(REMOTE_FORK_BRANCH) $(REMOTE_FORK_URL) $(REMOTE_BOOTSTRAP_DIR)")
                     if !ok
                         hint = occursin(r"resolve host|Could not resolve|unable to access|Connection timed out|Network is unreachable"i, out) ?
-                            " — this node looks like it has NO INTERNET ACCESS (common for HPC compute/GPU nodes). Try your LOGIN node instead, or clone the fork to $(REMOTE_BOOTSTRAP_DIR) there manually." : ""
+                            " — this node looks like it has NO INTERNET ACCESS (common for HPC compute/GPU nodes). Try your LOGIN node instead, or clone PlutoSpace to $(REMOTE_BOOTSTRAP_DIR) there manually." : ""
                         r.state = "error"
                         r.detail = "git clone failed on $(r.host): $(_tail(out))$(hint)"
                         return
@@ -190,10 +198,15 @@ function _remote_connect_task!(r::RemoteSession)
                 while true
                     sleep(5)
                     elapsed = round(Int, (time() - started) / 60)
-                    # PROOF over promises: stream the live install log line into the banner
-                    _, out = _ssh_try(r.host, "test -f ~/.plutospace/.install_ok && echo __DONE__; kill -0 \$(cat ~/.plutospace/install.pid 2>/dev/null) 2>/dev/null && echo __ALIVE__; tail -n 1 ~/.plutospace/install.log 2>/dev/null")
+                    # PROOF over promises: stream the live install log line into the banner.
+                    # Fence the tail behind a __LOG__ marker and extract only that — a ProxyJump
+                    # login node reprints its post-quantum warning on every hop (LogLevel can't
+                    # reach it), and without the fence that client chatter would land in the
+                    # banner instead of the real progress line.
+                    _, out = _ssh_try(r.host, "test -f ~/.plutospace/.install_ok && echo __DONE__; kill -0 \$(cat ~/.plutospace/install.pid 2>/dev/null) 2>/dev/null && echo __ALIVE__; printf '__LOG__%s' \"\$(tail -n 1 ~/.plutospace/install.log 2>/dev/null)\"")
                     occursin("__DONE__", out) && break
-                    log_line = strip(replace(replace(out, "__ALIVE__" => ""), "__DONE__" => ""))
+                    log_m = match(r"__LOG__(.*)", out)
+                    log_line = log_m === nothing ? "" : strip(String(log_m.captures[1]))
                     if occursin("Juliaup configuration is locked", out)
                         _ssh_try(r.host, "kill -9 \$(cat ~/.plutospace/install.pid 2>/dev/null) 2>/dev/null; rm -f ~/.plutospace/install.pid")
                         r.state = "error"
@@ -240,7 +253,7 @@ function _remote_connect_task!(r::RemoteSession)
         local_port, probe_server = Sockets.listenany(Sockets.localhost, 45200)
         close(probe_server)
         local_port = Int(local_port)
-        r.tunnel = Base.run(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; wait=false)
+        r.tunnel = Base.run(pipeline(`ssh -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; stderr=devnull); wait=false)
         ok = false
         for _ in 1:20
             sleep(1)
