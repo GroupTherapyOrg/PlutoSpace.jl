@@ -1,7 +1,7 @@
 <div align="center">
 
 <h1 align="center">
-<img src="frontend/img/plutospace.svg" width="36" align="middle" alt="">
+<img src="frontend/img/plutospace.svg" width="26" alt="">
 &nbsp;PlutoSpace.jl
 </h1>
 
