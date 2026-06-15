@@ -92,6 +92,23 @@ function _local_ping_ok(port::Int)::Bool
     end
 end
 
+# A registry file can outlive the server that wrote it: HPC jobs end, nodes reboot, and a
+# SIGKILL'd server never gets to delete its own connection file. Reusing such a stale file
+# tunnels forever to a dead port ("tunnel did not come up"). So before trusting a registry,
+# confirm something is actually answering on the remote loopback port — curl /ping when
+# available (truest: confirms a live Pluto), else a dependency-free bash /dev/tcp probe.
+function _remote_server_alive(host::String, port::Int)::Bool
+    probe = """
+    if command -v curl >/dev/null 2>&1; then
+      curl -fsS -m 4 -o /dev/null http://127.0.0.1:$(port)/ping && echo __LIVE__ || echo __DEAD__
+    else
+      (exec 3<>/dev/tcp/127.0.0.1/$(port)) 2>/dev/null && echo __LIVE__ || echo __DEAD__
+    fi
+    """
+    _, out = _ssh_try(host, probe)
+    occursin("__LIVE__", out)
+end
+
 function _remote_connect_task!(r::RemoteSession)
     try
         r.state = "connecting"
@@ -112,6 +129,15 @@ function _remote_connect_task!(r::RemoteSession)
             ""
         end
         remote = _parse_remote_registry(reg)
+
+        # Don't trust a connection file whose server has since died — clear the stale file and
+        # fall through to a fresh bootstrap/start, so reconnecting "just works" (the VS Code
+        # Remote-SSH feel) instead of tunneling to a corpse.
+        if remote !== nothing && !_remote_server_alive(r.host, remote.port)
+            r.detail = "clearing a stale PlutoSpace registry on $(r.host) (port $(remote.port) is dead)"
+            _ssh_try(r.host, "rm -f ~/.local/state/pluto/servers/$(remote.port).json")
+            remote = nothing
+        end
 
         if remote === nothing
             # find julia (absolute path) — checks PATH, juliaup, ~/.local/bin, and an interactive shell (for module/.bashrc setups)
