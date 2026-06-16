@@ -851,7 +851,7 @@ const Land = () => {
                         <div class="header-buttons">
                             <button class="header-button" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>
                             <button class="header-button shutdown-button" title="Shut down the PlutoSpace server" onClick=${shutdown_server}>⏻</button>
-                            <button class="header-button" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}>⟨</button>
+                            <button class="header-button collapse-button" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}><span class="collapse-icon"></span></button>
                         </div>
                     </div>
                 </header>

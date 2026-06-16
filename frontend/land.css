@@ -126,6 +126,22 @@ body.resizing #frames iframe {
     color: #e06c6c;
 }
 
+/* sidebar collapse: a real themed chevron icon (Pluto's icon convention) instead of a stray glyph */
+#land .collapse-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+#land .collapse-button .collapse-icon {
+    width: 1.1em;
+    height: 1.1em;
+    background-image: url("https://cdn.jsdelivr.net/gh/ionic-team/ionicons@5.5.1/src/svg/chevron-back-outline.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: var(--image-filters);
+}
+
 #sidebar-reopen {
     align-self: flex-start;
     flex-shrink: 0;
