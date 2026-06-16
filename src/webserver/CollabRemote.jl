@@ -117,6 +117,25 @@ function _remote_server_alive(host::String, port::Int)::Bool
     occursin("__LIVE__", out)
 end
 
+# Keep the remote install in lockstep with `main`: fast-forward the existing clone and report whether
+# anything actually changed. This is what makes "the remote always matches your local PlutoSpace" —
+# the VS Code Remote-SSH feel. No clone yet, or no internet on the node (common for HPC compute
+# nodes), is a silent no-op — we keep whatever is already there.
+function _maybe_update_remote_clone!(host::String)::Bool
+    snippet = """
+    d="\$HOME/.plutospace/Pluto.jl"
+    [ -d "\$d/.git" ] || { echo __NOCLONE__; exit 0; }
+    cd "\$d" || { echo __NOCLONE__; exit 0; }
+    before=\$(git rev-parse HEAD 2>/dev/null)
+    git fetch --depth 1 origin $(REMOTE_FORK_BRANCH) >/dev/null 2>&1 || { echo __OFFLINE__; exit 0; }
+    git reset --hard FETCH_HEAD >/dev/null 2>&1 || { echo __RESETFAIL__; exit 0; }
+    after=\$(git rev-parse HEAD 2>/dev/null)
+    [ "\$before" = "\$after" ] && echo __UPTODATE__ || echo __UPDATED__
+    """
+    _, out = _ssh_try(host, snippet)
+    occursin("__UPDATED__", out)
+end
+
 function _remote_connect_task!(r::RemoteSession)
     try
         r.state = "connecting"
@@ -144,6 +163,24 @@ function _remote_connect_task!(r::RemoteSession)
         if remote !== nothing && !_remote_server_alive(r.host, remote.port)
             r.detail = "clearing a stale PlutoSpace registry on $(r.host) (port $(remote.port) is dead)"
             _ssh_try(r.host, "rm -f ~/.local/state/pluto/servers/$(remote.port).json")
+            remote = nothing
+        end
+
+        # Auto-update: if the clone is behind main, fast-forward it, then retire the running server +
+        # its install marker so a fresh, UPDATED server boots below. No-op when already current, not
+        # yet cloned, or the node has no internet — so reconnecting always lands you on the latest.
+        if _maybe_update_remote_clone!(r.host)
+            r.state = "checking"
+            r.detail = "updating PlutoSpace on $(r.host) to the latest version"
+            _ssh_try(r.host, raw"""
+            rm -f "$HOME/.plutospace/.install_ok"
+            for f in "$HOME"/.local/state/pluto/servers/*.json; do
+                [ -e "$f" ] || continue
+                pid=$(sed -n 's/.*"pid": *\([0-9]*\).*/\1/p' "$f")
+                [ -n "$pid" ] && kill "$pid" 2>/dev/null
+                rm -f "$f"
+            done
+            """)
             remote = nothing
         end
 
