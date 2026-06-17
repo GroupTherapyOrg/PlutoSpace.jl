@@ -512,8 +512,9 @@ const TerminalView = ({ tid, cwd, visible }) => {
                 cursorBlink: true,
                 scrollback: 5000,
                 theme: {
-                    background: styles.getPropertyValue("--code-background").trim() || "#1f1f1f",
-                    foreground: styles.getPropertyValue("--pluto-output-color").trim() || "#dddddd",
+                    // the terminal interior stays dark in both themes (see --terminal-bg/fg in themes/*.css)
+                    background: styles.getPropertyValue("--terminal-bg").trim() || "#1f1f1f",
+                    foreground: styles.getPropertyValue("--terminal-fg").trim() || "#dddddd",
                 },
             })
             const fit = new FitAddon()

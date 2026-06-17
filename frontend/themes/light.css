@@ -199,6 +199,9 @@
         --cm-color-editor-li-aria-selected: white;
         --cm-color-editor-li-notexported: rgba(0, 0, 0, 0.5);
         --code-background: hsla(46, 90%, 98%, 1);
+        /* the integrated terminal interior stays dark even in light mode (the dark-theme code colors) */
+        --terminal-bg: hsl(222deg 16% 19%);
+        --terminal-fg: hsl(0deg 0% 77%);
         --cm-color-code-differs-gutters: rgba(214, 172, 35, 0.2);
         --cm-color-line-numbers: #8d86875e;
         --cm-selection-background: hsl(214deg 100% 73% / 48%);

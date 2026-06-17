@@ -1224,6 +1224,9 @@ body.resizing-v #frames iframe {
     height: 100%;
     overflow: hidden;
     border-radius: 0.4rem;
+    /* the interior is always dark (matches the xterm theme), even in light mode — covers the padding
+       and prevents a light flash before xterm paints its own canvas */
+    background-color: var(--terminal-bg);
 }
 .terminal-body .xterm {
     height: 100%;
