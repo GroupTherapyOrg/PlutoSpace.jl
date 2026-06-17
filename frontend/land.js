@@ -314,7 +314,7 @@ const WorkspaceOpener = ({ on_cancel, tunneled }) => {
                           ${running.map(
                               (w) => html`<div class="recent-card running-card ${w.state === "ready" ? "" : "running-busy"}" key=${w.key}>
                                   ${w.url != null
-                                      ? html`<a class="running-open" href=${with_homebase(w.url)} target="_blank" title=${`Open ${w.name}`}>
+                                      ? html`<a class="running-open" href=${with_homebase(w.url)} target="_blank" rel="opener" title=${`Open ${w.name}`}>
                                             <span class="recent-icon">${w.kind === "remote" ? "🛰" : "🗂"}</span>
                                             <span class="recent-name">${w.name}</span>
                                             <span class="recent-path">${w.sub}</span>
@@ -405,7 +405,7 @@ const WorkspaceOpener = ({ on_cancel, tunneled }) => {
                               const st = remote_states[h]
                               const busy = st != null && st.state !== "ready" && st.state !== "error"
                               return st?.state === "ready" && st.url != null
-                                  ? html`<a class="dir-pill remote-ready" href=${with_homebase(st.url)} target="_blank" title=${st.detail}>
+                                  ? html`<a class="dir-pill remote-ready" href=${with_homebase(st.url)} target="_blank" rel="opener" title=${st.detail}>
                                         <span class="dir-icon">🛰</span>${h} →
                                     </a>`
                                   : html`<button
@@ -730,6 +730,12 @@ const Land = () => {
         if (no_workspace) window.name = HOMEBASE_WINDOW_NAME
     }, [no_workspace])
 
+    // Tab title tells the homebase apart from workspaces in the browser's tab strip: the launcher reads
+    // "PlutoSpace (launcher)"; a workspace reads "PlutoSpace — <folder>".
+    useEffect(() => {
+        document.title = no_workspace ? "PlutoSpace (launcher)" : workspace?.root ? `PlutoSpace — ${basename(workspace.root)}` : "PlutoSpace"
+    }, [no_workspace, workspace])
+
     // "Home" from inside a workspace. Over a tunnel: clear the workspace and reload this same tab (the
     // remote homebase). Otherwise: focus the homebase tab if open, or reopen it if it was closed — one
     // shared homebase, never a disconnected duplicate. (In-tab opener only when no homebase is known.)
@@ -738,6 +744,17 @@ const Land = () => {
             fetch("./api/v1/workspace/close", { method: "POST" }).finally(() => window.location.reload())
             return
         }
+        // Focus the homebase tab that opened us. opener.focus() is one of the few cross-origin-permitted
+        // calls, so unlike window.open(url, name) it actually focuses across the different ports our
+        // workspaces live on — and it doesn't reload the homebase. (Anchor-opened tabs keep their opener
+        // thanks to rel="opener" on the workspace links.)
+        try {
+            if (window.opener && !window.opener.closed) {
+                window.opener.focus()
+                return
+            }
+        } catch (e) {}
+        // Homebase was closed (or no opener): reopen it (or fall back to an in-tab opener if unknown).
         if (homebase_url.current) window.open(homebase_url.current, HOMEBASE_WINDOW_NAME)
         else set_show_opener(true)
     }, [tunneled])
