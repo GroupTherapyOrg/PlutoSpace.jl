@@ -1,6 +1,19 @@
 import .Throttled
 
 """
+The name of the auth cookie, scoped by the server's port.
+
+Cookies are scoped by host + name + path — **the port is not part of a cookie's scope**
+(RFC 6265). So multiple Pluto servers on the same host (e.g. several `plutospace` workspaces
+on `localhost:1234`, `:1235`, …) would all set a cookie named `secret` for `localhost` and
+*clobber each other*: launching a second server logs the first one out of its own browser tab,
+turning every cookie-authenticated request (`./api/v1/notebooks`, `./edit?id=…`, the editor
+WebSocket) into a 403. Putting the port in the cookie *name* gives each server its own cookie,
+so any number of workspaces can run side by side.
+"""
+secret_cookie_name(session::ServerSession) = "pluto_secret_$(something(session.options.server.port, 0))"
+
+"""
 Return whether the `request` was authenticated in one of two ways:
 1. the session's `secret` was included in the URL as a search parameter, or
 2. the session's `secret` was included in a cookie.
@@ -18,8 +31,9 @@ function is_authenticated(session::ServerSession, request::HTTP.Request)
     ) || (
         secret_in_cookie = try
             cookies = HTTP.cookies(request)
+            cookie_name = secret_cookie_name(session)
             any(cookies) do cookie
-                cookie.name == "secret" && cookie.value == session.secret
+                cookie.name == cookie_name && cookie.value == session.secret
             end
         catch e
             @warn "Failed to authenticate request using cookies" exception = (e, catch_backtrace())
@@ -39,7 +53,7 @@ end
 
 
 function add_set_secret_cookie!(session::ServerSession, response::HTTP.Response)
-    HTTP.setheader(response, "Set-Cookie" => "secret=$(session.secret); SameSite=Strict; HttpOnly")
+    HTTP.setheader(response, "Set-Cookie" => "$(secret_cookie_name(session))=$(session.secret); Path=/; SameSite=Strict; HttpOnly")
     response
 end
 
