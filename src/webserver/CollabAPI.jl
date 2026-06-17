@@ -341,6 +341,30 @@ function register_collab_api!(router, session::ServerSession)
     end
     HTTP.register!(router, "POST", "/api/v1/workspace/open", serve_api_workspace_open)
 
+    # Clear the workspace (back to the launcher) — the "home" button on a tunneled server switches
+    # workspaces in-place rather than opening new tabs, so it needs a way to return to the homebase.
+    function serve_api_workspace_close(request::HTTP.Request)
+        session.options.server.workspace_folder = nothing
+        port = session.options.server.port
+        port isa Integer && try
+            write_collab_registry_file(session, port)
+        catch end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(Pair["ok" => true]) * "\n")
+    end
+    HTTP.register!(router, "POST", "/api/v1/workspace/close", serve_api_workspace_close)
+
+    # Capabilities the frontend needs even before a workspace exists. `tunneled` = this server is reached
+    # over an SSH tunnel (set at remote launch): its child workspace ports aren't forwarded to the browser,
+    # so the launcher opens workspaces IN-PLACE instead of spawning unreachable child tabs.
+    function serve_api_config(request::HTTP.Request)
+        body = _json(Pair[
+            "tunneled" => haskey(ENV, "PLUTOSPACE_TUNNELED"),
+            "pluto_version" => PLUTO_VERSION_STR,
+        ])
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], body * "\n")
+    end
+    HTTP.register!(router, "GET", "/api/v1/config", serve_api_config)
+
     function serve_api_ssh_hosts(request::HTTP.Request)
         # the user's already-keyed remotes: Host entries from ~/.ssh/config (wildcards skipped)
         hosts = String[]

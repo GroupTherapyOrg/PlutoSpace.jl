@@ -310,7 +310,10 @@ function _remote_connect_task!(r::RemoteSession)
 
             r.state = "starting"
             r.detail = "starting the PlutoSpace server on $(r.host)"
-            _ssh_run(r.host, "nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'm = try Base.require(Main, :PlutoSpace) catch; Base.require(Main, :Pluto) end; m.run(launch_browser=false)' > ~/.plutospace/server.log 2>&1 < /dev/null & disown; true")
+            # PLUTOSPACE_TUNNELED marks this server as reached over an SSH tunnel: its child workspace
+            # ports aren't forwarded to the browser, so its frontend opens workspaces IN-PLACE instead of
+            # spawning unreachable children (see serve_api_config + land.js).
+            _ssh_run(r.host, "export PLUTOSPACE_TUNNELED=1; nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'm = try Base.require(Main, :PlutoSpace) catch; Base.require(Main, :Pluto) end; m.run(launch_browser=false)' > ~/.plutospace/server.log 2>&1 < /dev/null & disown; true")
             for _ in 1:90
                 sleep(2)
                 _remote_bail(r) && return
