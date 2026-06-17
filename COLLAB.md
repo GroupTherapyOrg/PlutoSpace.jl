@@ -34,8 +34,9 @@ PlutoSpace.run()        # lazy collab mode is the default
    results by reading that file. (Add `*.pluto-cache.toml` to `.gitignore`.)
 
 3. **A live HTTP API + CLI.** Every running server writes a connection file to
-   `~/.local/state/pluto/servers/<port>.json` (port + access secret — the Jupyter
-   connection-file idiom). The `bin/pluto-collab` CLI uses it to find your server:
+   `~/.local/state/pluto/servers/<node>-<port>.json` (port + access secret — the Jupyter
+   connection-file idiom; the `<node>` prefix keeps servers on a shared `$HOME`, one per
+   HPC compute node, from colliding). The `bin/pluto-collab` CLI uses it to find your server:
 
    ```
    pluto-collab status notebook.jl            # per-cell: stale / cold / errored / output

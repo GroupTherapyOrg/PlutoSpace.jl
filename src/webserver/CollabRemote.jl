@@ -28,6 +28,7 @@ mutable struct RemoteSession
     julia::String   # absolute path of julia on the remote, once discovered
     tunnel::Union{Base.Process,Nothing}
     task::Union{Task,Nothing}
+    cancelled::Bool # set by the UI to abort an in-flight connect (the connect task checks it and bails)
 end
 
 const REMOTE_SESSIONS = Dict{String,RemoteSession}()
@@ -117,6 +118,25 @@ function _remote_server_alive(host::String, port::Int)::Bool
     occursin("__LIVE__", out)
 end
 
+# Discover the PlutoSpace server running ON THIS node, scheme-agnostically: scan every connection file in
+# the (possibly NFS-shared) registry dir and print the first whose port actually answers on 127.0.0.1 here.
+# "alive on this node's loopback" is the true discriminator — it transparently handles BOTH a freshly node-
+# tagged "<host>-<port>.json" and a bare "<port>.json" from a remote still on the published code, and it
+# never adopts another cluster node's server (its port isn't listening on this node) — all without trusting
+# a filename. (curl when present — truest, confirms a live Pluto — else a dependency-free /dev/tcp probe.)
+const _FIND_REMOTE_SERVER_SNIPPET = raw"""
+for f in "$HOME"/.local/state/pluto/servers/*.json; do
+    [ -e "$f" ] || continue
+    p=$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$f")
+    [ -n "$p" ] || continue
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$p/ping" 2>/dev/null && { cat "$f"; exit 0; }
+    else
+        (exec 3<>/dev/tcp/127.0.0.1/"$p") 2>/dev/null && { cat "$f"; exit 0; }
+    fi
+done
+"""
+
 # Keep the remote install in lockstep with `main`: fast-forward the existing clone and report whether
 # anything actually changed. This is what makes "the remote always matches your local PlutoSpace" —
 # the VS Code Remote-SSH feel. No clone yet, or no internet on the node (common for HPC compute
@@ -136,8 +156,24 @@ function _maybe_update_remote_clone!(host::String)::Bool
     occursin("__UPDATED__", out)
 end
 
+# The UI can cancel an in-flight connect. The connect task can't be interrupted mid-`_ssh_run`, but it
+# checks this between phases and inside its poll loops — so a cancel lands within a couple seconds, tears
+# down any half-open tunnel, and stops the remote from being marked ready.
+function _remote_bail(r::RemoteSession)::Bool
+    r.cancelled || return false
+    t = r.tunnel
+    t === nothing || try
+        process_exited(t) || kill(t)
+    catch
+    end
+    r.state = "error"
+    r.detail = "canceled"
+    true
+end
+
 function _remote_connect_task!(r::RemoteSession)
     try
+        _remote_bail(r) && return
         r.state = "connecting"
         r.detail = "reaching $(r.host) with your SSH keys"
         try
@@ -151,20 +187,14 @@ function _remote_connect_task!(r::RemoteSession)
         r.state = "checking"
         r.detail = "looking for a running PlutoSpace on $(r.host)"
         reg = try
-            _ssh_run(r.host, "cat ~/.local/state/pluto/servers/*.json 2>/dev/null | head -n 1")
+            _ssh_run(r.host, _FIND_REMOTE_SERVER_SNIPPET)
         catch
             ""
         end
+        # The snippet only prints a server that's actually answering on this node, so there's no stale
+        # corpse to clear and no foreign-node file to mistake for ours — a dead/other registry is simply
+        # never returned, and we fall through to a fresh bootstrap/start.
         remote = _parse_remote_registry(reg)
-
-        # Don't trust a connection file whose server has since died — clear the stale file and
-        # fall through to a fresh bootstrap/start, so reconnecting "just works" (the VS Code
-        # Remote-SSH feel) instead of tunneling to a corpse.
-        if remote !== nothing && !_remote_server_alive(r.host, remote.port)
-            r.detail = "clearing a stale PlutoSpace registry on $(r.host) (port $(remote.port) is dead)"
-            _ssh_try(r.host, "rm -f ~/.local/state/pluto/servers/$(remote.port).json")
-            remote = nothing
-        end
 
         # Auto-update: if the clone is behind main, fast-forward it, then retire the running server +
         # its install marker so a fresh, UPDATED server boots below. No-op when already current, not
@@ -172,11 +202,23 @@ function _remote_connect_task!(r::RemoteSession)
         if _maybe_update_remote_clone!(r.host)
             r.state = "checking"
             r.detail = "updating PlutoSpace on $(r.host) to the latest version"
+            # Retire only THIS node's server(s): "alive on this node's loopback" is the test (same as
+            # discovery), so on a shared $HOME we never kill/delete a sibling node's live server, and it
+            # works whatever the filename scheme. kill hits a real pid because an answering port == a
+            # process on this very node.
             _ssh_try(r.host, raw"""
             rm -f "$HOME/.plutospace/.install_ok"
             for f in "$HOME"/.local/state/pluto/servers/*.json; do
                 [ -e "$f" ] || continue
+                p=$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$f")
                 pid=$(sed -n 's/.*"pid": *\([0-9]*\).*/\1/p' "$f")
+                alive=0
+                if command -v curl >/dev/null 2>&1; then
+                    curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$p/ping" 2>/dev/null && alive=1
+                else
+                    (exec 3<>/dev/tcp/127.0.0.1/"$p") 2>/dev/null && alive=1
+                fi
+                [ "$alive" = 1 ] || continue
                 [ -n "$pid" ] && kill "$pid" 2>/dev/null
                 rm -f "$f"
             done
@@ -234,6 +276,7 @@ function _remote_connect_task!(r::RemoteSession)
                 started = time()
                 while true
                     sleep(5)
+                    _remote_bail(r) && return
                     elapsed = round(Int, (time() - started) / 60)
                     # PROOF over promises: stream the live install log line into the banner.
                     # Fence the tail behind a __LOG__ marker and extract only that — a ProxyJump
@@ -270,8 +313,10 @@ function _remote_connect_task!(r::RemoteSession)
             _ssh_run(r.host, "nohup $(r.julia) --project=$(REMOTE_BOOTSTRAP_DIR) -e 'm = try Base.require(Main, :PlutoSpace) catch; Base.require(Main, :Pluto) end; m.run(launch_browser=false)' > ~/.plutospace/server.log 2>&1 < /dev/null & disown; true")
             for _ in 1:90
                 sleep(2)
+                _remote_bail(r) && return
                 reg = try
-                    _ssh_run(r.host, "cat ~/.local/state/pluto/servers/*.json 2>/dev/null | head -n 1")
+                    # the server we just launched announces itself by answering /ping on this node (see snippet)
+                    _ssh_run(r.host, _FIND_REMOTE_SERVER_SNIPPET)
                 catch
                     ""
                 end
@@ -298,6 +343,7 @@ function _remote_connect_task!(r::RemoteSession)
         ok = false
         for _ in 1:20
             sleep(1)
+            _remote_bail(r) && return
             if _local_ping_ok(local_port)
                 ok = true
                 break
@@ -309,6 +355,7 @@ function _remote_connect_task!(r::RemoteSession)
             r.detail = "tunnel did not come up (local port $local_port → $(r.host):$(remote.port))"
             return
         end
+        _remote_bail(r) && return
 
         r.local_port = local_port
         r.secret = remote.secret
@@ -316,8 +363,8 @@ function _remote_connect_task!(r::RemoteSession)
         try
             dir = collab_registry_dir()
             mkpath(dir)
-            path = joinpath(dir, "$(local_port).json")
-            write(path, """{"pid": $(getpid()), "host": "127.0.0.1", "port": $(local_port), "secret": $(_json_string(remote.secret)), "remote_ssh_host": $(_json_string(r.host)), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
+            path = collab_registry_path(local_port)
+            write(path, """{"pid": $(getpid()), "host": "127.0.0.1", "port": $(local_port), "node": $(_json_string(gethostname())), "secret": $(_json_string(remote.secret)), "remote_ssh_host": $(_json_string(r.host)), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
             chmod(path, 0o600)
         catch end
         r.state = "ready"
@@ -358,11 +405,34 @@ function open_remote_session!(host::String)::RemoteSession
                 return r # already connecting
             end
         end
-        r = RemoteSession(host, "connecting", "", 0, "", "", nothing, nothing)
+        r = RemoteSession(host, "connecting", "", 0, "", "", nothing, nothing, false)
         r.task = @asynclog _remote_connect_task!(r)
         REMOTE_SESSIONS[host] = r
         return r
     end
+end
+
+"""
+Cancel/forget a remote session: flag the connect task to bail, tear down a half-open tunnel, and drop it
+from the registry. Serves the UI's ✕ — whether the session is still connecting (cancel), errored (dismiss),
+or ready (disconnect; the remote server itself persists and re-tunnels on the next connect).
+"""
+function cancel_remote_session!(host::String)
+    r = lock(REMOTE_SESSIONS_LOCK) do
+        get(REMOTE_SESSIONS, host, nothing)
+    end
+    if r !== nothing
+        r.cancelled = true
+        t = r.tunnel
+        t === nothing || try
+            process_exited(t) || kill(t)
+        catch
+        end
+    end
+    lock(REMOTE_SESSIONS_LOCK) do
+        delete!(REMOTE_SESSIONS, host)
+    end
+    nothing
 end
 
 function register_collab_remote!(router, session::ServerSession)
@@ -396,6 +466,38 @@ function register_collab_remote!(router, session::ServerSession)
     end
     HTTP.register!(router, "GET", "/api/v1/remote/status", serve_remote_status)
 
+    # The launcher's "homebase" lists every active remote alongside the local workspaces (see
+    # /api/v1/local/list), so you see — and reattach to — all running workspaces from one place.
+    function serve_remote_list(request::HTTP.Request)
+        items = lock(REMOTE_SESSIONS_LOCK) do
+            Vector{Pair}[
+                Pair[
+                    "host" => r.host,
+                    "state" => r.state,
+                    "url" => r.state == "ready" ? _remote_url(r) : nothing,
+                ]
+                for r in values(REMOTE_SESSIONS)
+            ]
+        end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(items) * "\n")
+    end
+    HTTP.register!(router, "GET", "/api/v1/remote/list", serve_remote_list)
+
+    function serve_remote_cancel(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        haskey(query, "host") || return _api_error(400, "pass ?host=<ssh-config-host>", false)
+        host = query["host"]
+        @async begin
+            sleep(0.1)
+            try
+                cancel_remote_session!(host)
+            catch
+            end
+        end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(Pair["status" => "canceled", "host" => host]) * "\n")
+    end
+    HTTP.register!(router, "POST", "/api/v1/remote/cancel", serve_remote_cancel)
+
     # Shut the whole server down cleanly from the UI — the terminal-independent way out. Behind the
     # normal secret (auth_middleware gates /api/v1/*). Respond FIRST, then tear down on a short delay
     # so the 200 reaches the browser: close SSH tunnels, then stop the HTTP server (which fires
@@ -406,6 +508,10 @@ function register_collab_remote!(router, session::ServerSession)
             sleep(0.4)
             try
                 close_all_remote_tunnels()
+            catch
+            end
+            try
+                close_all_local_sessions() # reap child workspace servers (local processes — don't outlive the hub)
             catch
             end
             try

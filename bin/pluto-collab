@@ -8,7 +8,8 @@
 # this tool is how you run them.
 #
 # Dependencies: curl, sed. Discovery via the connection files that every running PlutoSpace
-# server writes to $XDG_STATE_HOME/pluto/servers/<port>.json (like Jupyter kernels).
+# server writes to $XDG_STATE_HOME/pluto/servers/<node>-<port>.json (like Jupyter kernels;
+# the <node> prefix keeps servers on a shared $HOME — one per HPC node — from colliding).
 # Inside a PlutoSpace terminal this CLI is already on your PATH, and PLUTOSPACE_PORT /
 # PLUTOSPACE_SECRET point it at the live session automatically — no discovery needed.
 #
@@ -46,21 +47,26 @@ abs_path() {
     fi
 }
 
-# iterate live servers; prints "port<TAB>host<TAB>secret" per line
+# iterate live servers; prints "port<TAB>host<TAB>secret" per line.
+# Globs all "*.json" so it sees both node-tagged "<host>-<port>.json" and bare "<port>.json" (a server on
+# the published code). On a shared $HOME (an HPC cluster) the dir also holds OTHER nodes' files, where a
+# dead-looking pid isn't ours to delete — so we only rm a stale file when its "node" matches THIS host.
 live_servers() {
     [ -d "$REGISTRY_DIR" ] || return 0
+    me=$(hostname)
     for f in "$REGISTRY_DIR"/*.json; do
         [ -e "$f" ] || continue
         pid=$(json_field pid <"$f")
         port=$(json_field port <"$f")
         host=$(json_field host <"$f")
         secret=$(json_field secret <"$f")
+        node=$(json_field node <"$f")
         [ -n "$pid" ] && [ -n "$port" ] || continue
         if kill -0 "$pid" 2>/dev/null; then
             case "$host" in ""|0.0.0.0|'*') host=127.0.0.1 ;; esac
             printf '%s\t%s\t%s\n' "$port" "$host" "$secret"
-        else
-            rm -f "$f" 2>/dev/null # stale registry entry
+        elif [ "$node" = "$me" ]; then
+            rm -f "$f" 2>/dev/null # our own stale entry (dead pid, this host) — safe to remove
         fi
     done
 }

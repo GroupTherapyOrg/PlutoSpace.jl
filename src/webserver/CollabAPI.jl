@@ -7,7 +7,8 @@
 #  - Input via query parameters, output as JSON (`format=json`, default) or plain text
 #    (`format=text`) — so a thin shell client needs no JSON parser at all.
 #  - Server discovery via a connection file (like Jupyter's kernel-*.json): every running server
-#    writes `$XDG_STATE_HOME/pluto/servers/<port>.json` with its port and secret.
+#    writes `$XDG_STATE_HOME/pluto/servers/<node>-<port>.json` with its port and secret (the <node>
+#    prefix keeps servers on a shared $HOME — one per HPC node — from colliding; see collab_registry_path).
 #  - Runs are BLOCKING: the HTTP response is held open until the cells finish, so a client gets
 #    success/failure from one request. Runs go through the same execution path (and the same
 #    execution token) as browser clients — both sides see each other's runs live.
@@ -50,7 +51,17 @@ _json(x::Vector{<:Pair}) = "{" * join(("$(_json_string(String(first(p)))):$(_jso
 # --- server connection registry (Jupyter kernel-<id>.json idiom) ---
 
 collab_registry_dir() = joinpath(get(ENV, "XDG_STATE_HOME", joinpath(homedir(), ".local", "state")), "pluto", "servers")
-collab_registry_path(port::Integer) = joinpath(collab_registry_dir(), "$(port).json")
+
+# Tag the registry filename with the node's hostname: "<node>-<port>.json".
+# On a shared $HOME (an HPC cluster mounts the same NFS home on every compute node) this one
+# directory is shared by every node's PlutoSpace server. A bare "<port>.json" name collides across
+# nodes — each node's server independently grabs the same default port (1234), so the second writer
+# silently clobbers the first, and discovery/cleanup can't tell whose file is whose. The hostname
+# prefix gives each node its own filenames; on a single local machine it's just a constant prefix.
+# (Hostnames are filename-safe in practice; sanitize defensively. Readers glob "$(hostname)-*.json"
+# on the SAME node, and Julia's gethostname() == the shell's `hostname` — same syscall — so they match.)
+_registry_node() = replace(gethostname(), r"[^A-Za-z0-9._-]" => "_")
+collab_registry_path(port::Integer) = joinpath(collab_registry_dir(), "$(_registry_node())-$(port).json")
 
 "Write the connection file that lets external tools discover this live server (port + secret). Flat JSON, greppable with sed — clients need no JSON parser."
 function write_collab_registry_file(session::ServerSession, port::Integer)
@@ -58,7 +69,7 @@ function write_collab_registry_file(session::ServerSession, port::Integer)
     mkpath(dir)
     path = collab_registry_path(port)
     ws = session.options.server.workspace_folder
-    write(path, """{"pid": $(getpid()), "host": $(_json_string(session.options.server.host)), "port": $(port), "secret": $(_json_string(session.secret)), "workspace": $(ws === nothing ? "null" : _json_string(tamepath(ws))), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
+    write(path, """{"pid": $(getpid()), "host": $(_json_string(session.options.server.host)), "port": $(port), "node": $(_json_string(gethostname())), "secret": $(_json_string(session.secret)), "workspace": $(ws === nothing ? "null" : _json_string(tamepath(ws))), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
     try
         chmod(path, 0o600) # the file contains the access secret
     catch end

@@ -24,6 +24,15 @@ const get_json = async (url, opts) => {
 
 const basename = (p) => p.split("/").pop()
 
+// One canonical homebase: the launcher tab names itself this, so a workspace's "home" button can focus it
+// (or reopen it if it was closed) via window.open(url, HOMEBASE_WINDOW_NAME) — instead of every workspace
+// spawning its own disconnected in-tab launcher.
+const HOMEBASE_WINDOW_NAME = "plutospace-homebase"
+const homebase_self_url = () => window.location.origin + window.location.pathname + window.location.search
+// Tag a workspace URL with this homebase's address (in the #fragment — never sent to the server) so the
+// workspace it opens knows where "home" is.
+const with_homebase = (url) => (url == null ? url : `${url}#homebase=${encodeURIComponent(homebase_self_url())}`)
+
 // `new URL(..., import.meta.url)` works unbundled in the browser AND gets rewritten by
 // the bundler — a string src would 404 in frontend-dist where filenames are hashed.
 const logo_url = new URL("img/plutospace.svg", import.meta.url).href
@@ -95,14 +104,24 @@ const FileEntry = ({ entry, on_open_notebook, on_open_file, on_create_in, on_del
     </li>`
 }
 
-/** The VS Code "Open Folder" experience: browse the server's filesystem, pick a folder.
- *  `open_workspace(path)` is provided by the parent (it handles confirmation + shutdown of
- *  running notebooks); `on_cancel` (optional) shows a back button when switching workspaces. */
-const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
+/** Homebase: the VS Code "Open Folder" experience (browse the filesystem, pick a folder) plus a live
+ *  list of every running workspace — local children AND SSH remotes — to reattach to or shut down.
+ *  Picking a folder spawns a child server in a new tab (see connect_local); this view never leaves.
+ *  `on_cancel` (optional) shows a back button when opened on top of an existing workspace. */
+const WorkspaceOpener = ({ on_cancel }) => {
     const [listing, set_listing] = useState(/** @type {{path: String, parent: String, dirs: Array<String>}?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
     const [ssh_hosts, set_ssh_hosts] = useState(/** @type {Array<String>} */ ([]))
     const [remote_states, set_remote_states] = useState(/** @type {Record<String, {state: String, detail: String, url: String?}>} */ ({}))
+    // Picking a LOCAL folder spawns a child PlutoSpace server (its own process + tab), exactly like an
+    // SSH remote — so this opener is "homebase": it never leaves to become a workspace, it launches them.
+    const [local_states, set_local_states] = useState(/** @type {Record<String, {state: String, detail: String, url: String?}>} */ ({}))
+    const [running, set_running] = useState(
+        /** @type {Array<{kind: String, key: String, name: String, sub: String, state: String, url: String?, path?: String, host?: String}>} */ ([])
+    )
+    // a connect can be cancelled mid-flight: the poll loops below bail when their key lands in these sets
+    const cancelled_hosts = useRef(/** @type {Set<String>} */ (new Set()))
+    const cancelled_paths = useRef(/** @type {Set<String>} */ (new Set()))
 
     useEffect(() => {
         get_json("./api/v1/ssh_hosts")
@@ -112,19 +131,126 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
 
     const connect_remote = useCallback(async (host) => {
         // everything happens server-side, idempotently: reuse a live tunnel/server, bootstrap only on first contact
+        cancelled_hosts.current.delete(host) // a fresh attempt clears any earlier cancel
         try {
             let status = await get_json(`./api/v1/remote/open?host=${encodeURIComponent(host)}`, { method: "POST" })
             set_remote_states((s) => ({ ...s, [host]: status }))
             while (status.state !== "ready" && status.state !== "error") {
                 await new Promise((r) => setTimeout(r, 1500))
+                if (cancelled_hosts.current.has(host)) return // cancelled: stop polling (cancel_remote cleared the UI)
                 status = await get_json(`./api/v1/remote/status?host=${encodeURIComponent(host)}`)
                 set_remote_states((s) => ({ ...s, [host]: status }))
             }
             if (status.state === "ready" && status.url != null) {
-                window.open(status.url, "_blank") // may be blocked: the pill stays a clickable link either way
+                window.open(with_homebase(status.url), "_blank") // may be blocked: the pill stays a clickable link either way
             }
         } catch (e) {
+            if (cancelled_hosts.current.has(host)) return
             set_remote_states((s) => ({ ...s, [host]: { state: "error", detail: String(e), url: null } }))
+        }
+    }, [])
+
+    // Cancel / dismiss / disconnect a remote: stop polling, tell the server to bail + drop it, clear the UI.
+    const cancel_remote = useCallback(async (host) => {
+        cancelled_hosts.current.add(host)
+        try {
+            await fetch(`./api/v1/remote/cancel?host=${encodeURIComponent(host)}`, { method: "POST" })
+        } catch (e) {}
+        set_remote_states((s) => {
+            const c = { ...s }
+            delete c[host]
+            return c
+        })
+        set_running((rs) => rs.filter((w) => !(w.kind === "remote" && w.host === host)))
+    }, [])
+
+    // Local twin of connect_remote: spawn (or reattach to) the child server for this folder, then open it
+    // in a new tab. The homebase tab stays put, so you can launch as many workspaces as you like.
+    const connect_local = useCallback(async (path) => {
+        cancelled_paths.current.delete(path) // a fresh attempt clears any earlier cancel
+        try {
+            let status = await get_json(`./api/v1/local/open?path=${encodeURIComponent(path)}`, { method: "POST" })
+            set_local_states((s) => ({ ...s, [path]: status }))
+            while (status.state !== "ready" && status.state !== "error") {
+                await new Promise((r) => setTimeout(r, 1000))
+                if (cancelled_paths.current.has(path)) return // cancelled: stop polling
+                status = await get_json(`./api/v1/local/status?path=${encodeURIComponent(path)}`)
+                set_local_states((s) => ({ ...s, [path]: status }))
+            }
+            if (status.state === "ready" && status.url != null) {
+                remember_workspace(path)
+                window.open(with_homebase(status.url), "_blank") // may be blocked: the ready card stays a clickable link either way
+            }
+        } catch (e) {
+            if (cancelled_paths.current.has(path)) return
+            set_local_states((s) => ({ ...s, [path]: { state: "error", detail: String(e), url: null } }))
+        }
+    }, [])
+
+    // Cancel an in-flight (or errored) local spawn — no confirm, nothing's running yet. (Shutting down a
+    // READY workspace, which has live notebooks, goes through shutdown_local with its confirm instead.)
+    const cancel_local = useCallback(async (path) => {
+        cancelled_paths.current.add(path)
+        try {
+            await fetch(`./api/v1/local/shutdown?path=${encodeURIComponent(path)}`, { method: "POST" })
+        } catch (e) {}
+        set_local_states((s) => {
+            const c = { ...s }
+            delete c[path]
+            return c
+        })
+        set_running((rs) => rs.filter((w) => !(w.kind === "local" && w.path === path)))
+    }, [])
+
+    const shutdown_local = useCallback(async (path) => {
+        if (
+            !window.confirm(
+                `Shut down the workspace server for ${basename(path)}?\n\nIts running notebooks will stop. Files stay on disk and outputs are cached in their .pluto-cache.toml sidecars, so reopening restores everything.`
+            )
+        )
+            return
+        try {
+            await fetch(`./api/v1/local/shutdown?path=${encodeURIComponent(path)}`, { method: "POST" })
+        } catch (e) {}
+        set_local_states((s) => {
+            const c = { ...s }
+            delete c[path]
+            return c
+        })
+        set_running((rs) => rs.filter((w) => !(w.kind === "local" && w.path === path)))
+    }, [])
+
+    // The ✕ on a Running Workspace card: cancel a connecting one, dismiss an errored one, disconnect a
+    // ready remote, or shut down a ready local workspace (that one confirms — it has live notebooks).
+    const dismiss_running = useCallback(
+        (w) => {
+            if (w.kind === "remote") return cancel_remote(w.host)
+            if (w.state === "ready") return shutdown_local(w.path)
+            return cancel_local(w.path)
+        },
+        [cancel_remote, shutdown_local, cancel_local]
+    )
+
+    // Homebase poll: every running workspace — local children AND SSH remotes — in one place, so you can
+    // see them all and reattach in a click. (Best-effort; the lists just don't render if a fetch fails.)
+    useEffect(() => {
+        let alive = true
+        const load = async () => {
+            const [locals, remotes] = await Promise.all([
+                get_json("./api/v1/local/list").catch(() => []),
+                get_json("./api/v1/remote/list").catch(() => []),
+            ])
+            if (!alive) return
+            set_running([
+                ...locals.map((w) => ({ kind: "local", key: `local:${w.path}`, name: basename(w.path) || w.path, sub: w.path, state: w.state, url: w.url, path: w.path })),
+                ...remotes.map((r) => ({ kind: "remote", key: `remote:${r.host}`, name: r.host, sub: "SSH remote", state: r.state, url: r.url, host: r.host })),
+            ])
+        }
+        load()
+        const iv = setInterval(load, 3000)
+        return () => {
+            alive = false
+            clearInterval(iv)
         }
     }, [])
 
@@ -140,17 +266,6 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
     useEffect(() => {
         browse(null)
     }, [])
-
-    const open_workspace = useCallback(
-        async (path) => {
-            try {
-                await open_workspace_raw(path)
-            } catch (e) {
-                String(e).includes("cancelled") || set_error(String(e))
-            }
-        },
-        [open_workspace_raw]
-    )
 
     const recent = get_recent_workspaces()
 
@@ -175,12 +290,42 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
                 ${on_cancel == null ? null : html`<button class="opener-cancel" title="Back to the current workspace" onClick=${on_cancel}>← back</button>`}
             </header>
 
+            ${running.length > 0
+                ? html`<section>
+                      <h2>Running Workspaces</h2>
+                      <div class="recent-grid">
+                          ${running.map(
+                              (w) => html`<div class="recent-card running-card ${w.state === "ready" ? "" : "running-busy"}" key=${w.key}>
+                                  ${w.url != null
+                                      ? html`<a class="running-open" href=${with_homebase(w.url)} target="_blank" title=${`Open ${w.name}`}>
+                                            <span class="recent-icon">${w.kind === "remote" ? "🛰" : "🗂"}</span>
+                                            <span class="recent-name">${w.name}</span>
+                                            <span class="recent-path">${w.sub}</span>
+                                        </a>`
+                                      : html`<div class="running-open is-busy">
+                                            <span class="recent-icon">${w.kind === "remote" ? "🛰" : "🗂"}</span>
+                                            <span class="recent-name">${w.name}</span>
+                                            <span class="recent-path">${w.state}…</span>
+                                        </div>`}
+                                  <button
+                                      class="running-shutdown"
+                                      title=${w.state === "error" ? "Dismiss" : w.state !== "ready" ? "Cancel" : w.kind === "remote" ? "Disconnect" : "Shut down this workspace"}
+                                      onClick=${() => dismiss_running(w)}
+                                  >
+                                      ✕
+                                  </button>
+                              </div>`
+                          )}
+                      </div>
+                  </section>`
+                : null}
+
             ${recent.length > 0
                 ? html`<section>
                       <h2>Recent</h2>
                       <div class="recent-grid">
                           ${recent.map(
-                              (p) => html`<button class="recent-card" title=${p} onClick=${() => open_workspace(p)}>
+                              (p) => html`<button class="recent-card" title=${p} onClick=${() => connect_local(p)}>
                                   <span class="recent-icon">🗂</span>
                                   <span class="recent-name">${basename(p)}</span>
                                   <span class="recent-path">${p}</span>
@@ -215,7 +360,7 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
                               ${listing.dirs.length === 0 ? html`<p class="subtitle">no subfolders</p>` : null}
                           </div>
                           <div class="opener-actions">
-                              <button class="open-this-folder" onClick=${() => open_workspace(listing.path)}>
+                              <button class="open-this-folder" onClick=${() => connect_local(listing.path)}>
                                   Open <strong>${basename(listing.path) || "/"}</strong> as workspace
                               </button>
                               <form
@@ -243,7 +388,7 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
                               const st = remote_states[h]
                               const busy = st != null && st.state !== "ready" && st.state !== "error"
                               return st?.state === "ready" && st.url != null
-                                  ? html`<a class="dir-pill remote-ready" href=${st.url} target="_blank" title=${st.detail}>
+                                  ? html`<a class="dir-pill remote-ready" href=${with_homebase(st.url)} target="_blank" title=${st.detail}>
                                         <span class="dir-icon">🛰</span>${h} →
                                     </a>`
                                   : html`<button
@@ -267,12 +412,33 @@ const WorkspaceOpener = ({ open_workspace: open_workspace_raw, on_cancel }) => {
                                           ? html`<span class="remote-progress-note">First-time setup compiles a lot of Julia — this is the slow step. Leave this page open; it will connect by itself.</span>`
                                           : null}
                                   </div>
+                                  <button class="remote-cancel" title="Cancel this connection" onClick=${() => cancel_remote(h)}>Cancel</button>
                               </div>`
                           )}
                       ${Object.values(remote_states).some((st) => st.state === "error")
                           ? html`<p class="opener-error">${Object.entries(remote_states).filter(([_, st]) => st.state === "error").map(([h, st]) => `${h}: ${st.detail}`).join(" · ")}</p>`
                           : null}
                   </section>`
+                : null}
+            ${Object.entries(local_states)
+                .filter(([_, st]) => st.state !== "ready" && st.state !== "error")
+                .map(
+                    ([path, st]) => html`<div class="remote-progress" key=${path}>
+                        <span class="remote-spinner"></span>
+                        <div class="remote-progress-text">
+                            <strong>Starting ${basename(path)} — ${st.state}</strong>
+                            <span>${st.detail}</span>
+                        </div>
+                        <button class="remote-cancel" title="Cancel this launch" onClick=${() => cancel_local(path)}>Cancel</button>
+                    </div>`
+                )}
+            ${Object.values(local_states).some((st) => st.state === "error")
+                ? html`<p class="opener-error">
+                      ${Object.entries(local_states)
+                          .filter(([_, st]) => st.state === "error")
+                          .map(([path, st]) => `${basename(path)}: ${st.detail}`)
+                          .join(" · ")}
+                  </p>`
                 : null}
             ${error == null ? null : html`<p class="opener-error">${error}</p>`}
         </div>
@@ -521,6 +687,29 @@ const Land = () => {
     if (terminal_open) terminal_ever_opened.current = true
     const [show_opener, set_show_opener] = useState(false)
     const auto_tabbed = useRef(false)
+    // If this tab was spawned by a homebase, it carries the homebase URL in its #fragment — remember it so
+    // the "home" button returns there instead of opening a disconnected in-tab launcher.
+    const homebase_url = useRef(/** @type {String?} */ (null))
+    if (homebase_url.current == null) {
+        const m = window.location.hash.match(/[#&]homebase=([^&]+)/)
+        if (m) {
+            try {
+                homebase_url.current = decodeURIComponent(m[1])
+            } catch (e) {}
+        }
+    }
+    // The launcher (no workspace of its own) is THE homebase — name the tab so workspaces can target it.
+    useEffect(() => {
+        if (no_workspace) window.name = HOMEBASE_WINDOW_NAME
+    }, [no_workspace])
+
+    // "Home" from inside a workspace: focus the homebase tab if it's open, or reopen it if it was closed —
+    // one shared homebase, never a disconnected duplicate. (Falls back to the in-tab opener only when this
+    // tab has no known homebase, e.g. a hub launched directly on a folder.)
+    const go_home = useCallback(() => {
+        if (homebase_url.current) window.open(homebase_url.current, HOMEBASE_WINDOW_NAME)
+        else set_show_opener(true)
+    }, [])
 
     // Terminals are tabs INSIDE the terminal panel (like VS Code). Each is a persistent shell
     // keyed by tid; the list + active terminal are restored on reload. `terminal_seq` numbers them.
@@ -689,28 +878,6 @@ const Land = () => {
         })
     }, [])
 
-    const switch_workspace = useCallback(
-        async (path) => {
-            if (running.length > 0) {
-                const noun = running.length === 1 ? "1 running notebook" : `${running.length} running notebooks`
-                const ok = confirm(
-                    `Open a different workspace?\n\nThis will shut down ${noun}. Notebook files stay on disk, and outputs are cached in their .pluto-cache.toml sidecars — reopening them later restores everything.`
-                )
-                if (!ok) throw new Error("cancelled")
-                for (const nb of running) {
-                    await get_text(`./shutdown?id=${encodeURIComponent(nb.notebook_id)}`, { method: "POST" }).catch(() => {})
-                }
-                set_tabs([])
-                set_active(null)
-            }
-            const result = await get_json(`./api/v1/workspace/open?path=${encodeURIComponent(path)}`, { method: "POST" })
-            remember_workspace(result.root)
-            set_show_opener(false)
-            await refresh()
-        },
-        [running, refresh]
-    )
-
     const create_in = useCallback(
         async (dir) => {
             const name = prompt(`New file in ${dir.split("/").pop()}/ — a name ending in .jl becomes a Pluto notebook:`, "notebook.jl")
@@ -829,12 +996,11 @@ const Land = () => {
             '<div style="font: 15px/1.6 system-ui, sans-serif; padding: 3rem; text-align: center; color: #888">PlutoSpace has shut down. You can close this tab.</div>'
     }, [])
 
-    // the opener shows on first load (no workspace yet) and on demand (switching workspaces)
+    // The opener is "homebase": it shows on first launch (no workspace) and on demand (the "open another
+    // workspace" button). Picking a folder spawns a child server in a new tab — it never takes over this
+    // tab — so the launcher persists as the place you see and manage every running workspace.
     if (no_workspace || show_opener) {
-        return html`<${WorkspaceOpener}
-            open_workspace=${switch_workspace}
-            on_cancel=${no_workspace ? null : () => set_show_opener(false)}
-        />`
+        return html`<${WorkspaceOpener} on_cancel=${no_workspace ? null : () => set_show_opener(false)} />`
     }
 
     return html`
@@ -844,12 +1010,14 @@ const Land = () => {
                 : html`<aside style=${`width: ${sidebar_width}px`}>
                 <header class="bubble">
                     <div class="header-row">
-                        <img class="land-logo" src=${logo_url} alt="PlutoSpace" />
+                        <button class="land-logo-button" title="Back to homebase" onClick=${go_home}>
+                            <img class="land-logo" src=${logo_url} alt="PlutoSpace" />
+                        </button>
                         <div class="header-text">
                             <h1 title=${workspace?.root ?? ""}>Pluto<span class="land-accent">Space</span></h1>
                         </div>
                         <div class="header-buttons">
-                            <button class="header-button" title="Open a different folder as workspace" onClick=${() => set_show_opener(true)}>🗂</button>
+                            <button class="header-button" title="Back to homebase (open &amp; manage workspaces)" onClick=${go_home}>🗂</button>
                             <button class="header-button shutdown-button" title="Shut down the PlutoSpace server" onClick=${shutdown_server}>⏻</button>
                             <button class="header-button collapse-button" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}><span class="collapse-icon"></span></button>
                         </div>

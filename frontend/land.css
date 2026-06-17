@@ -97,6 +97,26 @@ body.resizing #frames iframe {
     width: 2.4rem;
     height: 2.4rem;
     flex-shrink: 0;
+    display: block;
+}
+
+/* the logo doubles as a "back to homebase" button */
+.land-logo-button {
+    border: none;
+    background: none;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 0.5rem;
+    transition: transform 0.08s linear, opacity 0.08s linear;
+}
+
+.land-logo-button:hover {
+    transform: translateY(-1px);
+    opacity: 0.85;
 }
 
 #land .header-buttons {
@@ -782,6 +802,48 @@ body.resizing #frames iframe {
     text-overflow: ellipsis;
 }
 
+/* running workspaces: a recent-card with the open area on the left and a shutdown ✕ on the right */
+.running-card {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0; /* the inner link owns the padding so the whole left area is the click target */
+}
+
+.running-open {
+    flex: 1;
+    min-width: 0;
+    display: block;
+    padding: 0.7rem 0.85rem;
+    color: inherit;
+    text-decoration: none;
+}
+
+.running-open.is-busy {
+    opacity: 0.7;
+    cursor: default;
+    animation: remote-pulse 1.4s ease-in-out infinite;
+}
+
+.running-shutdown {
+    flex-shrink: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    opacity: 0.4;
+    cursor: pointer;
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 0 0.8rem;
+    border-radius: 0 0.6rem 0.6rem 0;
+    transition: opacity 0.08s linear, background-color 0.08s linear;
+}
+
+.running-shutdown:hover {
+    opacity: 1;
+    background-color: rgba(var(--error-color, 240, 168, 168), 0.18);
+}
+
 /* breadcrumbs: each segment is clickable */
 .breadcrumbs {
     display: flex;
@@ -928,6 +990,29 @@ a.dir-pill {
     to {
         transform: rotate(360deg);
     }
+}
+
+/* Cancel button on the in-flight connect banner */
+.remote-cancel {
+    margin-left: auto;
+    align-self: center;
+    flex-shrink: 0;
+    border: none;
+    background-color: var(--main-bg-color);
+    color: inherit;
+    font: inherit;
+    font-size: 0.8rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 1000px;
+    cursor: pointer;
+    opacity: 0.85;
+    box-shadow: inset 0 0 0 1px var(--rule-color);
+    transition: opacity 0.08s linear, box-shadow 0.08s linear;
+}
+
+.remote-cancel:hover {
+    opacity: 1;
+    box-shadow: inset 0 0 0 1.5px rgba(var(--error-color, 240, 168, 168), 0.8);
 }
 
 .opener-actions {

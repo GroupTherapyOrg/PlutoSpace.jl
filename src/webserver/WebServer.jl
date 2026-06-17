@@ -187,6 +187,11 @@ function run!(session::ServerSession)
             close_all_remote_tunnels()
         catch
         end
+        # reap child workspace servers (also handles Ctrl-C / programmatic close; idempotent after serve_shutdown)
+        try
+            close_all_local_sessions()
+        catch
+        end
         # TODO: put do_work tokens back
         @async swallow_exception(() -> close(serversocket), Base.IOError)
         for client in values(session.connected_clients)
