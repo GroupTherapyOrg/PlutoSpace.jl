@@ -118,17 +118,24 @@ function _remote_server_alive(host::String, port::Int)::Bool
     occursin("__LIVE__", out)
 end
 
-# Discover the PlutoSpace server running ON THIS node, scheme-agnostically: scan every connection file in
-# the (possibly NFS-shared) registry dir and print the first whose port actually answers on 127.0.0.1 here.
-# "alive on this node's loopback" is the true discriminator — it transparently handles BOTH a freshly node-
-# tagged "<host>-<port>.json" and a bare "<port>.json" from a remote still on the published code, and it
-# never adopts another cluster node's server (its port isn't listening on this node) — all without trusting
-# a filename. (curl when present — truest, confirms a live Pluto — else a dependency-free /dev/tcp probe.)
+# Discover the PlutoSpace server running ON THIS node: scan every connection file in the (possibly NFS-
+# shared) registry dir and print the first that belongs to THIS node AND is actually answering on 127.0.0.1.
+# Two discriminators, both needed on a shared $HOME:
+#   - node match: a "<host>-<port>.json" file records its node, so skip any whose node isn't us. WITHOUT
+#     this, two nodes that both grabbed port 1234 each write a file saying "port":1234; curling 127.0.0.1:1234
+#     here answers (OUR server) for EITHER file, so we'd hand back a sibling node's file — and its secret —
+#     and the tunnel would auth-fail ("secret does not exist"). A bare "<port>.json" from a remote still on
+#     the published code has no node field; fall back to the liveness probe alone for those (best effort).
+#   - liveness: confirms a real, reachable Pluto (not a stale registry left by a dead server).
+# (curl when present — truest — else a dependency-free /dev/tcp probe.)
 const _FIND_REMOTE_SERVER_SNIPPET = raw"""
+me=$(hostname)
 for f in "$HOME"/.local/state/pluto/servers/*.json; do
     [ -e "$f" ] || continue
     p=$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$f")
     [ -n "$p" ] || continue
+    node=$(sed -n 's/.*"node": *"\([^"]*\)".*/\1/p' "$f")
+    [ -n "$node" ] && [ "$node" != "$me" ] && continue
     if command -v curl >/dev/null 2>&1; then
         curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$p/ping" 2>/dev/null && { cat "$f"; exit 0; }
     else
@@ -202,16 +209,19 @@ function _remote_connect_task!(r::RemoteSession)
         if _maybe_update_remote_clone!(r.host)
             r.state = "checking"
             r.detail = "updating PlutoSpace on $(r.host) to the latest version"
-            # Retire only THIS node's server(s): "alive on this node's loopback" is the test (same as
-            # discovery), so on a shared $HOME we never kill/delete a sibling node's live server, and it
-            # works whatever the filename scheme. kill hits a real pid because an answering port == a
-            # process on this very node.
+            # Retire only THIS node's server(s): match the node field (skip a sibling node's same-port file
+            # on a shared $HOME — see the discovery snippet), then confirm it's actually alive here. kill hits
+            # a real pid because a node-matched, answering port is a process on this very node. Bare
+            # "<port>.json" files (no node field) fall back to the liveness probe alone.
             _ssh_try(r.host, raw"""
+            me=$(hostname)
             rm -f "$HOME/.plutospace/.install_ok"
             for f in "$HOME"/.local/state/pluto/servers/*.json; do
                 [ -e "$f" ] || continue
                 p=$(sed -n 's/.*"port": *\([0-9]*\).*/\1/p' "$f")
                 pid=$(sed -n 's/.*"pid": *\([0-9]*\).*/\1/p' "$f")
+                node=$(sed -n 's/.*"node": *"\([^"]*\)".*/\1/p' "$f")
+                [ -n "$node" ] && [ "$node" != "$me" ] && continue
                 alive=0
                 if command -v curl >/dev/null 2>&1; then
                     curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$p/ping" 2>/dev/null && alive=1
