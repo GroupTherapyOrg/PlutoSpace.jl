@@ -23,6 +23,10 @@
 #        the workspace values from each ancestor's last run; cold ancestors restored from
 #        cache are the exception: they must run once to exist in the kernel)
 #   pluto-collab interrupt <notebook.jl>          interrupt a running notebook
+#   pluto-collab restart <notebook.jl> [--json]   restart the kernel + re-run the whole notebook
+#       (recovers a worker that has DIED — "Process exited" / TerminatedWorkerException; interrupt
+#        only stops a running cell and run needs a live process, so neither can revive a dead one.
+#        Blocks until the fresh process finishes re-running; exit 1 if a cell errors.)
 #
 # Cell outputs are also continuously written to <notebook.jl>.pluto-cache.toml — plain TOML,
 # readable without this tool.
@@ -175,8 +179,25 @@ case "$cmd" in
             "$BASE/api/v1/notebook/interrupt" || { err "request failed"; exit 2; }
         ;;
 
+    restart)
+        [ $# -ge 2 ] || { err "usage: pluto-collab restart <notebook.jl> [--json]"; exit 2; }
+        require_server "$2"
+        fmt=text; [ "${3:-}" = "--json" ] && fmt=json
+        # No --max-time: a restart re-runs the whole notebook and the request blocks until it finishes
+        # (same contract as `run`). The body (per-cell states + RESULT line) is printed to stdout.
+        response_headers=$(mktemp)
+        curl -sf -X POST -G -D "$response_headers" \
+            --data-urlencode "path=$NB_PATH" -d "format=$fmt" -d "secret=$SECRET" \
+            "$BASE/api/v1/notebook/restart" \
+            || { rm -f "$response_headers"; err "request failed"; exit 2; }
+        errored=$(sed -n 's/^[Xx]-[Pp]luto-[Cc]ells-[Ee]rrored: *\([0-9]*\).*/\1/p' "$response_headers")
+        rm -f "$response_headers"
+        [ "${errored:-0}" -gt 0 ] && exit 1
+        exit 0
+        ;;
+
     help|--help|-h|*)
-        sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'
         [ "$cmd" = help ] || [ "$cmd" = --help ] || [ "$cmd" = -h ] || exit 2
         ;;
 esac

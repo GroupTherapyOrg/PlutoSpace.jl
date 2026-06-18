@@ -515,23 +515,38 @@ end
 
 without_initiator(🙋::ClientRequest) = ClientRequest(session=🙋.session, notebook=🙋.notebook)
 
+"""
+    restart_notebook_process!(session, notebook; run_async=true)
+
+Restart a notebook's worker process and re-run all of its cells — the engine behind the editor's
+"restart" button and the agent-facing `POST /api/v1/notebook/restart` (see CollabAPI.jl). Broadcasts
+the `waiting_to_restart` → `starting` status to every connected client, shuts the old worker down,
+then re-runs the whole notebook. A no-op when a restart is already in flight.
+
+This is the only way to recover a notebook whose worker has died (`Malt.TerminatedWorkerException`,
+`Process exited`): interrupting needs a running cell and running needs a live process, but a fresh
+process can always be brought up here.
+"""
+function restart_notebook_process!(session::ServerSession, notebook::Notebook; run_async::Bool=true)
+    notebook.process_status == ProcessStatus.waiting_to_restart && return
+    notebook.process_status = ProcessStatus.waiting_to_restart
+    session.options.evaluation.run_notebook_on_load && _report_business_cells_planned!(notebook)
+    send_notebook_changes!(ClientRequest(session=session, notebook=notebook))
+
+    # TODO skip necessary?
+    SessionActions.shutdown(session, notebook; keep_in_session=true, async=true)
+
+    notebook.process_status = ProcessStatus.starting
+    send_notebook_changes!(ClientRequest(session=session, notebook=notebook))
+
+    update_save_run!(session, notebook, notebook.cells; run_async=run_async, save=true)
+end
+
 responses[:restart_process] = function response_restart_process(🙋::ClientRequest; run_async::Bool=true)
     require_notebook(🙋)
 
     
-    if 🙋.notebook.process_status != ProcessStatus.waiting_to_restart
-        🙋.notebook.process_status = ProcessStatus.waiting_to_restart
-        🙋.session.options.evaluation.run_notebook_on_load && _report_business_cells_planned!(🙋.notebook)
-        send_notebook_changes!(🙋 |> without_initiator)
-
-        # TODO skip necessary?
-        SessionActions.shutdown(🙋.session, 🙋.notebook; keep_in_session=true, async=true)
-
-        🙋.notebook.process_status = ProcessStatus.starting
-        send_notebook_changes!(🙋 |> without_initiator)
-
-        update_save_run!(🙋.session, 🙋.notebook, 🙋.notebook.cells; run_async=run_async, save=true)
-    end
+    restart_notebook_process!(🙋.session, 🙋.notebook; run_async)
 end
 
 

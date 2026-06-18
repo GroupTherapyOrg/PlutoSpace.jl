@@ -485,4 +485,43 @@ function register_collab_api!(router, session::ServerSession)
         HTTP.Response(200, fmt_text ? "interrupt requested\n" : """{"ok": true}\n""")
     end
     HTTP.register!(router, "POST", "/api/v1/notebook/interrupt", serve_api_interrupt)
+
+    # Restart the notebook's worker process and re-run every cell — the agent-facing equivalent of the
+    # editor's "restart" button (see restart_notebook_process! in Dynamic.jl). This is the recovery path
+    # for a worker that has died/exited (Malt.TerminatedWorkerException, "Process exited"): `interrupt`
+    # only stops a running cell and `run` needs a live process, so neither can revive a crashed kernel —
+    # `restart` can. Blocking like /run: the response is held until the fresh process has re-run the
+    # notebook, then reports the resulting cell states (X-Pluto-Cells-Errored header, exit 1 for clients).
+    function serve_api_restart(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        fmt_text = _api_wants_text(query)
+        notebook = _api_notebook_from_query(session, query)
+        notebook === nothing && return _api_error(404, "notebook not found — is it open in this server? (pass ?path=/abs/path.jl or ?id=<uuid>)", fmt_text)
+
+        # same execution path as the browser's restart; synchronous so the HTTP call blocks until the re-run finishes
+        restart_notebook_process!(session, notebook; run_async=false)
+
+        n_errored = count(c -> c.errored, notebook.cells)
+        headers = [
+            "Content-Type" => fmt_text ? "text/plain; charset=utf-8" : "application/json; charset=utf-8",
+            "X-Pluto-Cells-Ran" => string(length(notebook.cells)),
+            "X-Pluto-Cells-Errored" => string(n_errored),
+        ]
+        if fmt_text
+            lines = [_api_cell_text_line(notebook, i, c) for (i, c) in enumerate(notebook.cells)]
+            push!(lines, n_errored == 0 ? "RESULT: restarted, $(length(notebook.cells)) cells ran ok" : "RESULT: restarted, $(n_errored) of $(length(notebook.cells)) cells errored")
+            HTTP.Response(200, headers, join(lines, "\n") * "\n")
+        else
+            body = _json(Pair[
+                "ok" => n_errored == 0,
+                "restarted" => true,
+                "cells_ran" => length(notebook.cells),
+                "cells_errored" => n_errored,
+                "process_status" => notebook.process_status,
+                "cells" => [_api_cell_pairs(c) for c in notebook.cells],
+            ])
+            HTTP.Response(200, headers, body * "\n")
+        end
+    end
+    HTTP.register!(router, "POST", "/api/v1/notebook/restart", serve_api_restart)
 end

@@ -42,7 +42,8 @@ PlutoSpace.run()        # lazy collab mode is the default
    pluto-collab status notebook.jl            # per-cell: stale / cold / errored / output
    pluto-collab run notebook.jl --stale       # run all stale cells; blocks; exit 1 on error
    pluto-collab run notebook.jl --cell <id>   # run one cell (+ its stale/cold ancestors)
-   pluto-collab interrupt notebook.jl
+   pluto-collab interrupt notebook.jl         # stop a running notebook
+   pluto-collab restart notebook.jl           # restart kernel + re-run all — recover a dead worker
    pluto-collab status notebook.jl --json     # same, structured
    ```
 
@@ -81,6 +82,29 @@ itself on demand.
 
 Expensive unrelated cells are never re-run: only the stale closure executes.
 
+### Unattended / overnight loops (recovering a dead worker)
+
+A notebook's worker can die mid-run — out-of-memory, a segfault in native code (CUDA/BLAS),
+an explicit `exit()`. The editor then shows **"Process exited — restart"** and Pluto raises
+`Malt.TerminatedWorkerException`. At that point `interrupt` is useless (nothing is running) and
+`run` has no live process to run into — an unattended agent must **restart**:
+
+```
+pluto-collab restart nb.jl     # fresh kernel, re-runs the whole notebook; blocks; exit 1 on error
+```
+
+`restart` re-runs *everything*, so reserve it for an actual crash — on a plain cell error, fix the
+cell and `run` again instead. A self-healing "run all night" loop is then:
+
+```bash
+while :; do
+  pluto-collab run nb.jl --stale && { sleep 60; continue; }   # clean → wait, go again
+  # run failed; if the worker is gone (not just a cell error) bring it back, then keep looping
+  pluto-collab status nb.jl | grep -q 'process: no_process' && pluto-collab restart nb.jl
+  sleep 60
+done
+```
+
 ### AGENTS.md stanza
 
 Drop this in any notebook repo so agents discover the workflow (works for Claude Code's
@@ -95,6 +119,9 @@ Notebooks (`*.jl` with Pluto cell markers) may be OPEN in a live lazy-mode Pluto
 - `pluto-collab status <nb.jl>` shows per-cell state and outputs.
 - `pluto-collab run <nb.jl> --stale` runs exactly what's outdated (blocking; exit 1 if a
   cell errors). Never re-run the whole notebook.
+- `pluto-collab restart <nb.jl>` restarts the kernel and re-runs everything — use it ONLY to
+  recover a dead/exited worker ("Process exited" / `TerminatedWorkerException`), which interrupt
+  and run cannot revive.
 - All cell outputs are also in `<nb.jl>.pluto-cache.toml` (plain TOML; a deletable cache).
 - Cell ids are the UUIDs in `# ╔═╡ <uuid>` markers. Keep the `# ╔═╡ Cell order:` section
   in sync when adding/removing cells.

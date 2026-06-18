@@ -99,6 +99,8 @@ PlutoSpace server. You can work in that same session with your normal tools:
 - `pluto-collab status <nb.jl>` — per-cell state (stale / cold / errored / output).
 - `pluto-collab run <nb.jl> --stale` — run exactly what's outdated (blocks; exit 1 on error).
   **Never re-run the whole notebook.**
+- `pluto-collab restart <nb.jl>` — restart the kernel and re-run everything. Use ONLY to recover a
+  **dead/exited worker** ("Process exited" / `TerminatedWorkerException`); interrupt/run can't revive one.
 - Every output is also in `<nb.jl>.pluto-cache.toml` (plain TOML; a deletable cache).
 - Cell ids are the UUIDs in `# ╔═╡ <uuid>` markers; keep the `# ╔═╡ Cell order:` block in sync.
 
