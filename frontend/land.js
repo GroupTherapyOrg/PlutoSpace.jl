@@ -304,7 +304,7 @@ const WorkspaceOpener = ({ on_cancel, tunneled }) => {
                 <img class="land-logo opener-logo" src=${logo_url} alt="PlutoSpace" />
                 <h1>Pluto<span class="land-accent">Space</span></h1>
                 <p class="subtitle">Open a folder as your workspace — notebooks inside it open as tabs.</p>
-                ${on_cancel == null ? null : html`<button class="opener-cancel" title="Back to the current workspace" onClick=${on_cancel}>← back</button>`}
+                ${on_cancel == null ? null : html`<button class="opener-cancel" title="Close — back to your workspace" onClick=${on_cancel}><span class="opener-cancel-icon"></span></button>`}
             </header>
 
             ${!tunneled && running.length > 0
@@ -704,6 +704,24 @@ const Land = () => {
     const terminal_ever_opened = useRef(false)
     if (terminal_open) terminal_ever_opened.current = true
     const [show_opener, set_show_opener] = useState(false)
+    const [menu_open, set_menu_open] = useState(false)
+    const menu_ref = useRef(null)
+    // Close the header overflow menu on an outside click or Escape — standard popover behaviour.
+    useEffect(() => {
+        if (!menu_open) return
+        const on_pointer = (e) => {
+            if (menu_ref.current != null && !menu_ref.current.contains(e.target)) set_menu_open(false)
+        }
+        const on_key = (e) => {
+            if (e.key === "Escape") set_menu_open(false)
+        }
+        document.addEventListener("pointerdown", on_pointer)
+        document.addEventListener("keydown", on_key)
+        return () => {
+            document.removeEventListener("pointerdown", on_pointer)
+            document.removeEventListener("keydown", on_key)
+        }
+    }, [menu_open])
     const auto_tabbed = useRef(false)
     // If this tab was spawned by a homebase, it carries the homebase URL in its #fragment — remember it so
     // the "home" button returns there instead of opening a disconnected in-tab launcher.
@@ -1058,15 +1076,24 @@ const Land = () => {
                 : html`<aside style=${`width: ${sidebar_width}px`}>
                 <header class="bubble">
                     <div class="header-row">
-                        <button class="land-logo-button" title="Back to homebase" onClick=${go_home}>
+                        <button class="land-logo-button" title="Back to homebase (open &amp; manage workspaces)" onClick=${go_home}>
                             <img class="land-logo" src=${logo_url} alt="PlutoSpace" />
                         </button>
                         <div class="header-text">
                             <h1 title=${workspace?.root ?? ""}>Pluto<span class="land-accent">Space</span></h1>
                         </div>
                         <div class="header-buttons">
-                            <button class="header-button" title="Back to homebase (open &amp; manage workspaces)" onClick=${go_home}>🗂</button>
-                            <button class="header-button shutdown-button" title="Shut down the PlutoSpace server" onClick=${shutdown_server}>⏻</button>
+                            <div class="header-menu" ref=${menu_ref}>
+                                <button class="header-button menu-button ${menu_open ? "active" : ""}" title="More actions" aria-haspopup="menu" aria-expanded=${menu_open} onClick=${() => set_menu_open((o) => !o)}><span class="menu-dots"></span></button>
+                                ${menu_open
+                                    ? html`<div class="header-menu-popover" role="menu">
+                                          <button class="header-menu-item danger" role="menuitem" onClick=${() => {
+                                              set_menu_open(false)
+                                              shutdown_server()
+                                          }}>⏻ Shut down server</button>
+                                      </div>`
+                                    : null}
+                            </div>
                             <button class="header-button collapse-button" title="Hide sidebar" onClick=${() => set_sidebar_hidden(true)}><span class="collapse-icon"></span></button>
                         </div>
                     </div>

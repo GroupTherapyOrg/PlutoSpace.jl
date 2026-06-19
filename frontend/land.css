@@ -79,12 +79,12 @@ body.resizing #frames iframe {
 #land .header-row {
     display: flex;
     align-items: center; /* single-line wordmark: icon, text, buttons share one centerline */
-    gap: 0.6rem;
+    gap: 0.45rem;
 }
 
 #land .header-text {
     flex: 1;
-    min-width: 0;
+    min-width: 0; /* must be able to shrink, or the buttons get pushed out of the card */
 }
 
 #land .header-text h1 {
@@ -94,8 +94,8 @@ body.resizing #frames iframe {
 }
 
 .land-logo {
-    width: 2.4rem;
-    height: 2.4rem;
+    width: 2.15rem;
+    height: 2.15rem;
     flex-shrink: 0;
     display: block;
 }
@@ -132,7 +132,7 @@ body.resizing #frames iframe {
     font: inherit;
     opacity: 0.5;
     cursor: pointer;
-    padding: 0.15rem 0.45rem;
+    padding: 0.15rem 0.35rem;
     border-radius: 1000px;
 }
 
@@ -141,25 +141,19 @@ body.resizing #frames iframe {
     background-color: var(--main-bg-color);
 }
 
-/* the shutdown (power) button reads as destructive on hover */
-#land .header-button.shutdown-button:hover {
-    color: #e06c6c;
-}
-
-/* sidebar collapse: a real themed chevron icon (Pluto's icon convention) instead of a stray glyph */
+/* sidebar collapse: a "tuck the sidebar away" panel icon (a framed panel with its left rail filled) —
+   UI furniture, not an arrow. Drawn as a mask so it inherits the button's themed color in light + dark. */
 #land .collapse-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
 }
 #land .collapse-button .collapse-icon {
-    width: 1.1em;
-    height: 1.1em;
-    background-image: url("https://cdn.jsdelivr.net/gh/ionic-team/ionicons@5.5.1/src/svg/chevron-back-outline.svg");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-    filter: var(--image-filters);
+    width: 1.2em;
+    height: 1.2em;
+    background-color: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3.25' y='5.25' width='17.5' height='13.5' rx='2.75' fill='none' stroke='black' stroke-width='1.7'/%3E%3Cline x1='9.5' y1='5.25' x2='9.5' y2='18.75' stroke='black' stroke-width='1.6'/%3E%3Crect x='4' y='6' width='4.75' height='12' rx='1' fill='black' opacity='0.4'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3.25' y='5.25' width='17.5' height='13.5' rx='2.75' fill='none' stroke='black' stroke-width='1.7'/%3E%3Cline x1='9.5' y1='5.25' x2='9.5' y2='18.75' stroke='black' stroke-width='1.6'/%3E%3Crect x='4' y='6' width='4.75' height='12' rx='1' fill='black' opacity='0.4'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 
 #sidebar-reopen {
@@ -179,6 +173,75 @@ body.resizing #frames iframe {
     box-shadow: 0 0 0 1px var(--rule-color), -2px 6px 16px 0px #00000030;
 }
 
+/* header overflow menu: the ••• trigger is a plain .header-button (identical base to the collapse button);
+   the popover reuses Pluto's exact bubble tokens (--code-background fill, 1px --rule-color ring, soft shadow). */
+.header-menu {
+    display: inline-flex;
+}
+
+#land .menu-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+#land .menu-button.active {
+    opacity: 1;
+    background-color: var(--main-bg-color);
+}
+#land .menu-button .menu-dots {
+    width: 1.3em;
+    height: 1.3em;
+    /* the circled ellipsis — same glyph Pluto uses for a cell's actions menu (editor.css), so the chrome matches */
+    background-image: url("https://cdn.jsdelivr.net/gh/ionic-team/ionicons@5.5.1/src/svg/ellipsis-horizontal-circle-outline.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: var(--image-filters);
+}
+
+.header-menu-popover {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    z-index: 50;
+    min-width: 11rem;
+    max-width: calc(100% - 0.5rem);
+    padding: 0.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    background-color: var(--code-background);
+    border-radius: 0.8rem;
+    box-shadow: 0 0 0 1px var(--rule-color), -2px 5px 14px 0px #00000022;
+}
+
+.header-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    text-align: left;
+    font: inherit;
+    font-size: 0.85rem;
+    padding: 0.5rem 0.6rem;
+    border: none;
+    background: none;
+    color: inherit;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.08s linear, color 0.08s linear;
+}
+.header-menu-item:hover {
+    background-color: var(--main-bg-color);
+}
+.header-menu-item.danger {
+    color: #d65f5f;
+}
+.header-menu-item.danger:hover {
+    color: #e06c6c;
+    background-color: var(--main-bg-color);
+}
+
 .bubble {
     background-color: var(--code-background);
     border-radius: 0.8rem;
@@ -188,11 +251,12 @@ body.resizing #frames iframe {
 
 #land > aside header.bubble {
     padding: 1rem;
+    position: relative; /* anchor the overflow-menu popover to the header card, so it drops down-and-right inside the sidebar */
 }
 
 #land > aside h1 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
 }
 
 #land > aside h1 .land-accent {
@@ -699,24 +763,35 @@ body.resizing #frames iframe {
     position: relative;
 }
 
+/* round icon button with a clean close mark (not an arrow) — dismisses the homebase overlay back to your workspace */
 .opener-card .opener-cancel {
     position: absolute;
     top: 0;
     right: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: none;
     border: none;
-    color: inherit;
-    font: inherit;
-    font-size: 0.85rem;
     opacity: 0.6;
     cursor: pointer;
-    padding: 0.3rem 0.7rem;
+    padding: 0.35rem;
     border-radius: 1000px;
 }
 
 .opener-card .opener-cancel:hover {
     opacity: 1;
     background-color: var(--main-bg-color);
+}
+
+.opener-card .opener-cancel .opener-cancel-icon {
+    width: 1.3em;
+    height: 1.3em;
+    background-image: url("https://cdn.jsdelivr.net/gh/ionic-team/ionicons@5.5.1/src/svg/close-outline.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: var(--image-filters);
 }
 
 .opener-card header h1 {
