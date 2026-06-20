@@ -772,9 +772,38 @@ const Land = () => {
                 return
             }
         } catch (e) {}
-        // Homebase was closed (or no opener): reopen it (or fall back to an in-tab opener if unknown).
-        if (homebase_url.current) window.open(homebase_url.current, HOMEBASE_WINDOW_NAME)
-        else set_show_opener(true)
+        // No live opener. If we know the homebase, switch to its tab: reuse it (never a duplicate) and
+        // focus the returned handle, so an ALREADY-OPEN homebase actually gets raised to the front — plain
+        // window.open(url, name) reuses the tab but only auto-focuses when it has to CREATE one.
+        if (homebase_url.current) {
+            // window.open("", name) hands back the existing named tab WITHOUT reloading it; if none is open
+            // it returns a fresh blank tab, which we then point at the homebase.
+            let w = null
+            try {
+                w = window.open("", HOMEBASE_WINDOW_NAME)
+            } catch (e) {}
+            if (w == null) {
+                // Popup blocked / unsupported: last-resort reopen-by-name.
+                window.open(homebase_url.current, HOMEBASE_WINDOW_NAME)
+                return
+            }
+            let is_blank = false
+            try {
+                is_blank = w.location.href === "about:blank"
+            } catch (e) {
+                // cross-origin: the homebase runs on another port, so it's already open — just focus it.
+            }
+            if (is_blank) {
+                try {
+                    w.location.href = homebase_url.current
+                } catch (e) {}
+            }
+            try {
+                w.focus()
+            } catch (e) {}
+            return
+        }
+        set_show_opener(true)
     }, [tunneled])
 
     // Terminals are tabs INSIDE the terminal panel (like VS Code). Each is a persistent shell
