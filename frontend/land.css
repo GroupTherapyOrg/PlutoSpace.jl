@@ -956,6 +956,37 @@ body.resizing #frames iframe {
 }
 
 /* subfolders: a tidy grid of folder pills */
+.ssh-timeout {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35em;
+    font-size: 0.78rem;
+    opacity: 0.7;
+    margin: 0 0.15rem 0.7rem 0.15rem;
+}
+
+.ssh-timeout input {
+    width: 3.6em;
+    font: inherit;
+    text-align: right;
+    color: inherit;
+    background-color: var(--main-bg-color);
+    border: 1px solid var(--rule-color, #8884);
+    border-radius: 6px;
+    padding: 0.12em 0.3em;
+}
+
+.ssh-timeout .unit {
+    margin-left: -0.15em;
+}
+
+.ssh-timeout .ssh-timeout-hint {
+    flex-basis: 100%;
+    opacity: 0.8;
+    font-style: italic;
+}
+
 .dir-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));

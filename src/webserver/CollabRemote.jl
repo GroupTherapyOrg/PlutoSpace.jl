@@ -42,8 +42,19 @@ const REMOTE_SESSIONS_LOCK = ReentrantLock()
 # neither scares the user in the terminal nor pollutes the output we parse. It does NOT
 # silence the remote command's own stderr, so real failures stay diagnosable. (A ProxyJump
 # hop reads its own config, not this flag — see _ssh_run, which also drops client stderr.)
+# SSH connect timeout, in seconds. A homebase setting (the launcher reads/writes it via
+# /api/v1/remote/config) — applied to every SSH call AND the tunnel below. Defaults to 25 (was a
+# hardcoded 8): a ProxyJump through a busy login node can take well over 8s just to relay the compute
+# node's SSH banner, which OpenSSH reports as "Connection timed out during banner exchange". That is a
+# SLOW HOP, not an auth failure — the bare terminal `ssh` the user tries has no timeout, so it always
+# waits it out and "works fine", while our short cap spuriously fails. Users on slow clusters can raise
+# it from the launcher.
+const SSH_CONNECT_TIMEOUT = Ref(25)
+const SSH_CONNECT_TIMEOUT_MIN, SSH_CONNECT_TIMEOUT_MAX = 3, 180
+
+# ServerAlive* lets a connection that stalls MID-command die in ~60s rather than hang forever.
 _ssh_command(host::String, cmd::String) =
-    `ssh -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR -o StrictHostKeyChecking=accept-new $host -- bash -lc $(_shquote(cmd))`
+    `ssh -o BatchMode=yes -o ConnectTimeout=$(SSH_CONNECT_TIMEOUT[]) -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o LogLevel=ERROR -o StrictHostKeyChecking=accept-new $host -- bash -lc $(_shquote(cmd))`
 
 "Run a command on the remote through a login shell (so juliaup/julia are on PATH). Keyed auth only."
 function _ssh_run(host::String, cmd::String)::String
@@ -183,11 +194,17 @@ function _remote_connect_task!(r::RemoteSession)
         _remote_bail(r) && return
         r.state = "connecting"
         r.detail = "reaching $(r.host) with your SSH keys"
-        try
-            _ssh_run(r.host, "true")
-        catch
+        # Use _ssh_try (captures stderr) so we can tell a SLOW HOP from a real auth failure: a
+        # ProxyJump banner timeout and a refused key produce very different fixes, and reporting
+        # "check your SSH keys" for what is actually a busy login node sends the user down a dead end.
+        ok, probe_out = _ssh_try(r.host, "true")
+        if !ok
             r.state = "error"
-            r.detail = "cannot reach $(r.host) with key-based SSH (check `ssh $(r.host)` works without a password prompt)"
+            r.detail = if occursin(r"banner exchange|timed out|timeout|Connection reset"i, probe_out)
+                "timed out reaching $(r.host) — the SSH hop is slow right now (often a busy ProxyJump login node), not an auth problem. Try connecting again; it usually goes through on a retry."
+            else
+                "cannot reach $(r.host) with key-based SSH (check `ssh $(r.host)` works without a password prompt)"
+            end
             return
         end
 
@@ -352,7 +369,7 @@ function _remote_connect_task!(r::RemoteSession)
         # `ssh -N` otherwise fights the shell for the terminal, so quitting the server (or just having a
         # remote open) can leave that terminal "disconnected". stdout→devnull too — we only watch
         # process_exited and the /ping probe, never the tunnel's streams.
-        r.tunnel = Base.run(pipeline(`ssh -n -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; stdin=devnull, stdout=devnull, stderr=devnull); wait=false)
+        r.tunnel = Base.run(pipeline(`ssh -n -o BatchMode=yes -o ConnectTimeout=$(SSH_CONNECT_TIMEOUT[]) -o ServerAliveInterval=15 -o ServerAliveCountMax=4 -o LogLevel=ERROR -o ExitOnForwardFailure=yes -N -L $local_port:127.0.0.1:$(remote.port) $(r.host)`; stdin=devnull, stdout=devnull, stderr=devnull); wait=false)
         ok = false
         for _ in 1:20
             sleep(1)
@@ -510,6 +527,23 @@ function register_collab_remote!(router, session::ServerSession)
         HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(Pair["status" => "canceled", "host" => host]) * "\n")
     end
     HTTP.register!(router, "POST", "/api/v1/remote/cancel", serve_remote_cancel)
+
+    # Homebase setting: the SSH connect timeout (seconds). The launcher reads it (GET) and writes it
+    # (POST ?connect_timeout=N) so users on a slow ProxyJump cluster can give the banner exchange more
+    # than the 25s default. Clamped to a sane range; takes effect on the next SSH call/tunnel. A server
+    # restart resets it to the default, so the launcher re-pushes its stored value on load.
+    remote_config_json() = _json(Pair["connect_timeout" => SSH_CONNECT_TIMEOUT[]]) * "\n"
+    function serve_remote_config(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        if haskey(query, "connect_timeout")
+            v = tryparse(Int, query["connect_timeout"])
+            v === nothing && return _api_error(400, "connect_timeout must be an integer number of seconds", false)
+            SSH_CONNECT_TIMEOUT[] = clamp(v, SSH_CONNECT_TIMEOUT_MIN, SSH_CONNECT_TIMEOUT_MAX)
+        end
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], remote_config_json())
+    end
+    HTTP.register!(router, "GET", "/api/v1/remote/config", serve_remote_config)
+    HTTP.register!(router, "POST", "/api/v1/remote/config", serve_remote_config)
 
     # Shut the whole server down cleanly from the UI — the terminal-independent way out. Behind the
     # normal secret (auth_middleware gates /api/v1/*). Respond FIRST, then tear down on a short delay

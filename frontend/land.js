@@ -63,6 +63,17 @@ const restore_terminals = () => {
     }
 }
 
+// How long to wait for an SSH connection before giving up (seconds). A busy ProxyJump login node can
+// need well over the old 8s default just to relay the compute node's banner — so this is user-tunable
+// from homebase. Mirrors the server's clamp (see SSH_CONNECT_TIMEOUT in CollabRemote.jl).
+const SSH_TIMEOUT_KEY = "plutospace ssh connect timeout"
+const SSH_TIMEOUT_DEFAULT = 25
+const clamp_ssh_timeout = (v) => Math.max(3, Math.min(180, Math.round(Number(v) || SSH_TIMEOUT_DEFAULT)))
+const get_ssh_timeout = () => {
+    const v = Number(localStorage.getItem(SSH_TIMEOUT_KEY))
+    return Number.isFinite(v) && v >= 3 ? clamp_ssh_timeout(v) : SSH_TIMEOUT_DEFAULT
+}
+
 const FileEntry = ({ entry, on_open_notebook, on_open_file, on_create_in, on_delete, depth }) => {
     const [open, set_open] = useState(false)
     if (entry.type === "dir") {
@@ -112,6 +123,7 @@ const WorkspaceOpener = ({ on_cancel, tunneled }) => {
     const [listing, set_listing] = useState(/** @type {{path: String, parent: String, dirs: Array<String>}?} */ (null))
     const [error, set_error] = useState(/** @type {String?} */ (null))
     const [ssh_hosts, set_ssh_hosts] = useState(/** @type {Array<String>} */ ([]))
+    const [ssh_timeout, set_ssh_timeout] = useState(get_ssh_timeout)
     const [remote_states, set_remote_states] = useState(/** @type {Record<String, {state: String, detail: String, url: String?}>} */ ({}))
     // Picking a LOCAL folder spawns a child PlutoSpace server (its own process + tab), exactly like an
     // SSH remote — so this opener is "homebase": it never leaves to become a workspace, it launches them.
@@ -128,6 +140,13 @@ const WorkspaceOpener = ({ on_cancel, tunneled }) => {
             .then(set_ssh_hosts)
             .catch(() => {})
     }, [])
+
+    // The SSH connect timeout is a homebase setting. The server resets it to its default on restart, so
+    // push our stored value on load and whenever it changes (and persist it locally for next time).
+    useEffect(() => {
+        localStorage.setItem(SSH_TIMEOUT_KEY, String(ssh_timeout))
+        fetch(`./api/v1/remote/config?connect_timeout=${encodeURIComponent(ssh_timeout)}`, { method: "POST" }).catch(() => {})
+    }, [ssh_timeout])
 
     const connect_remote = useCallback(async (host) => {
         // everything happens server-side, idempotently: reuse a live tunnel/server, bootstrap only on first contact
@@ -400,6 +419,22 @@ const WorkspaceOpener = ({ on_cancel, tunneled }) => {
                           Click a host: the whole Land (files, kernels, terminal) runs on that machine over an SSH tunnel. First contact installs the
                           server there; after that it reconnects instantly.
                       </p>
+                      <label
+                          class="ssh-timeout"
+                          title="How long to wait for an SSH connection — including the banner from a slow ProxyJump login node — before giving up."
+                      >
+                          Connection timeout
+                          <input
+                              type="number"
+                              min="3"
+                              max="180"
+                              step="1"
+                              value=${ssh_timeout}
+                              onChange=${(e) => set_ssh_timeout(clamp_ssh_timeout(e.target.value))}
+                          />
+                          <span class="unit">s</span>
+                          <span class="ssh-timeout-hint">Raise this if a host fails with “timed out reaching … slow SSH hop”.</span>
+                      </label>
                       <div class="dir-grid">
                           ${ssh_hosts.map((h) => {
                               const st = remote_states[h]
