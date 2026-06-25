@@ -103,7 +103,7 @@ export class CellOutput extends Component {
                 aria-relevant="all"
                 aria-label=${this.props.rootassignee == null
                     ? t("t_aria_label_cell_output_unlabeled")
-                    : ("t_aria_label_cell_output_labeled", { variable: this.props.rootassignee })}
+                    : t("t_aria_label_cell_output_labeled", { variable: this.props.rootassignee })}
             >
                 <assignee aria-hidden="true" translate=${false}>${prettyAssignee(this.props.rootassignee)}</assignee>
                 <${OutputBody} ...${this.props} />
