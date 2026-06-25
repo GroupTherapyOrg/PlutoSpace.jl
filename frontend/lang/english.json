@@ -57,6 +57,8 @@
     "t_cyclic_references_among": "Cyclic references among {{symbols}}.",
     "t_combine_cells_begin_block": "Combine all definitions into a single reactive cell using a <code>begin ... end</code> block.",
     "t_another_cell_defining_xs_contains_errors": "Another cell defining {{symbols}} contains errors.",
+    "t_aria_label_cell_output_unlabeled": "Result of unlabeled cell:",
+    "t_aria_label_cell_output_labeled": "Result of variable {{variable}}:",
     "t_error_message": "Error message",
     "t_stack_trace": "Stack trace",
     "t_header_list_of_syntax_errors": "Syntax errors",

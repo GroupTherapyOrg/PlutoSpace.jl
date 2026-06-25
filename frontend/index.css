@@ -302,7 +302,7 @@ span.ionicon::after {
 }
 #recent li .clear-btn {
     position: absolute;
-    right: 0.5em;
+    inset-inline-end: 0.5em;
     top: 50%;
     transform: translateY(-50%);
     font-size: 0.7rem;

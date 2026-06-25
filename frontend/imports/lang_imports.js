@@ -22,3 +22,4 @@ export { default as portugues_pt } from "../lang/portugues_pt.json" with { type:
 export { default as russian } from "../lang/russian.json" with { type: "json" }
 export { default as suomi } from "../lang/suomi.json" with { type: "json" }
 export { default as corporate_english } from "../lang/corporate english.json" with { type: "json" }
+export { default as arabic } from "../lang/arabic.json" with { type: "json" }

@@ -6823,7 +6823,8 @@ cursor out of the current field deactivates the fields.
 
 The order of fields defaults to textual order, but you can add
 numbers to placeholders (`${1}` or `${1:defaultText}`) to provide
-a custom order.
+a custom order. `${0}` is special—it is always the last stop, where
+the cursor ends up after tabbing through the other fields.
 
 To include a literal `{` or `}` in your template, put a backslash
 in front of it. This will be removed and the brace will not be
