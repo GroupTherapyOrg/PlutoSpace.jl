@@ -1911,17 +1911,10 @@ ${t("t_key_autosave_description")}`
                                     })}`,
                                 }
                             )}</a>
-                            <a class="footer-button" href="https://plutojl.org/en/docs/" target="_blank">${th("t_footer_button_FAQ", {
+                            <a class="footer-button" href="https://github.com/GroupTherapyOrg/PlutoSpace.jl" target="_blank">${th("t_footer_button_FAQ", {
                                 icon: InlineIonicon("help-circle-outline", { inlineMargin: false }),
                             })}</a>
-                            <span class="footer-spacer" style="flex: 1 1 0%; min-width: 5ch;"></span>
-                            <form id="feedback" action="#" method="post">
-                                <label for="opinion">${th("t_feedback_about_pluto", {
-                                    pluto: html`<a href="https://plutojl.org/" target="_blank">Pluto.jl</a>`,
-                                })}</label>
-                                <input type="text" name="opinion" id="opinion" autocomplete="off" placeholder=${t("t_instant_feedback_ellipsis")} />
-                                <button>${t("t_instant_feedback_send")}</button>
-                            </form>
+                            ${/* PlutoSpace: the instant-feedback form posted to the Pluto team's Firebase ("pluto-feedback") — removed. */ null}
                         </div>
                     </footer>
                     <${Popup} 

@@ -106,67 +106,8 @@ export const PlutoLandUpload = ({ notebook_id }) => {
                 </a>
             </div>
         </div>
-        <div class="ple-or" aria-hidden="true"><span>${th("t_plutoland_choose_up_or_down")}</span></div>
-        <div class="ple-plutoland ple-option">
-            <p>
-                ${th(is_recording ? "t_plutoland_upload_description_recording" : "t_plutoland_upload_description", {
-                    plutoland: html`<a href="https://pluto.land/" target="_blank">pluto.land</a>`,
-                })}
-            </p>
-            <div class="ple-bigbutton-container">
-                ${upload_flow_state === "waiting"
-                    ? html`
-                          <a
-                              class="ple-bigbutton"
-                              href="https://pluto.land/"
-                              target="_blank"
-                              download=""
-                              onClick=${(e) => {
-                                  e.preventDefault()
-                                  on_plutoland_upload()
-                              }}
-                          >
-                              ${th("t_plutoland_upload_upload", {
-                                  plutoland: html`<strong>pluto.land</strong>`,
-                              })}
-                              ${InlineIonicon("cloud-upload-outline", { inlineMargin: true })}
-                          </a>
-                      `
-                    : upload_flow_state === "uploading" || upload_flow_state === "generating"
-                      ? html` <div class="ple-plutoland-phase">
-                            <p>${th("t_plutoland_upload_uploading")}</p>
-                            ${prog}
-                        </div>`
-                      : upload_flow_state === "success"
-                        ? html` <div class="ple-plutoland-phase">
-                              <p>${th(is_recording ? "t_plutoland_upload_success_recording" : "t_plutoland_upload_success")}</p>
-                              <div class="ple-plutoland-url-container">
-                                  <a href=${`https://pluto.land/n/${plutoland_data.id}`} target="_blank" class="ple-plutoland-url">
-                                      ${`https://pluto.land/n/${plutoland_data.id}`}
-                                  </a>
-                                  <a
-                                      href="#"
-                                      title=${t("t_plutoland_upload_delete")}
-                                      onClick=${async (e) => {
-                                          e.preventDefault()
-
-                                          await fetch(`https://pluto.land/n/${plutoland_data.id}`, {
-                                              method: "DELETE",
-                                              headers: {
-                                                  "X-Creation-Secret": String(plutoland_data.creation_secret),
-                                              },
-                                          })
-                                          set_upload_flow_state("waiting")
-                                          set_plutoland_data({})
-                                      }}
-                                  >
-                                      ${InlineIonicon("trash-bin-outline", { inlineMargin: true })}
-                                  </a>
-                              </div>
-                          </div>`
-                        : html` <div class="ple-plutoland-phase">Error: ${upload_flow_state}</div>`}
-            </div>
-        </div>
+        ${/* PlutoSpace: "Share to pluto.land" (upload to the Pluto team's hosting service) has been
+            removed — no connections to pluto.land. The local HTML-export download above stays. */ null}
         <div class="final"><button onClick=${close}>${t("t_frontmatter_cancel")}</button></div>
     </dialog>`
 }
@@ -175,30 +116,7 @@ export const InlineIonicon = (icon_name, { inlineMargin = false } = {}) => {
     return html`<span class=${cl({ "ionicon-icon": true, "ionicon-icon-margin": inlineMargin })} data-icon=${icon_name} data-inline="true"></span>`
 }
 
-// Transfer file data to the pluto.land API
+// PlutoSpace: uploading to pluto.land (the Pluto team's hosting service) has been removed.
 /** @returns {Promise<XMLHttpRequest>} */
 const upload_to_plutoland = (/** @type {File | Blob} */ filesource, onprogress = (val, xhr) => {}) =>
-    new Promise((resolve, reject) => {
-        let xhr = new XMLHttpRequest()
-
-        xhr.onload = function (e) {
-            console.log("done", e, xhr)
-            onprogress(1.0, xhr)
-
-            resolve(xhr)
-        }
-
-        xhr.onerror = reject
-        xhr.onabort = reject
-
-        xhr.open("POST", "https://pluto.land/n", true)
-
-        xhr.upload.onprogress = function (e) {
-            console.log("progress", e, xhr)
-            let progress = e.loaded / e.total
-            onprogress(progress, xhr)
-        }
-        let data = new FormData()
-        data.append("file0", filesource)
-        xhr.send(data)
-    })
+    Promise.reject(new Error("Upload to pluto.land is not available in PlutoSpace."))

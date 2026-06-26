@@ -120,19 +120,14 @@ export const BinderButton = ({ offer_binder, start_binder, notebookfile, noteboo
                 <li>
                     <div class="command">${t("t_edit_or_run_run_pluto")}</div>
                     <p>${th("t_edit_or_run_run_pluto_description", { url: "https://plutojl.org/#install" })}</p>
-                    <img src="https://plutojl.org/assets/img/terminal%20run%20pluto.png" />
                 </li>
                 <li>
                     ${recommend_download
                         ? html`
                               <div class="command">${th("t_edit_or_run_open_the_notebook_file")}</div>
-                              <p>${th("t_edit_or_run_open_the_notebook_file_description")}</p>
-                              <img src="https://plutojl.org/assets/img/open%20notebook%20path%20or%20url.png" />
-                          `
+                              <p>${th("t_edit_or_run_open_the_notebook_file_description")}</p>                          `
                         : html`
-                              <div class="command">${th("t_edit_or_run_paste_url_in_the_open_box")}</div>
-                              <img src="https://plutojl.org/assets/img/open%20notebook%20path%20or%20url.png" />
-                          `}
+                              <div class="command">${th("t_edit_or_run_paste_url_in_the_open_box")}</div>                          `}
                 </li>
             </ol>
         </dialog>`

@@ -83,9 +83,9 @@ export const request_binder = (build_url, { on_log }) =>
         }
     })
 
-// view stats on https://stats.plutojl.org/
-export const count_stat = (page) =>
-    fetch(`https://stats.plutojl.org/count?p=/${page}&s=${screen.width},${screen.height},${devicePixelRatio}#skip_sw`, { cache: "no-cache" }).catch(() => {})
+// PlutoSpace: telemetry to the Pluto team's analytics (stats.plutojl.org) has been removed.
+// Kept as a no-op so existing call sites stay valid.
+export const count_stat = (page) => {}
 
 /**
  * Start a 'headless' binder session, open our notebook in it, and connect to it.
