@@ -1,6 +1,6 @@
 name = "PlutoRunner"
 uuid = "dc6b355a-2368-4481-ae6d-ae0351418d79"
-authors = ["Michiel Dral <m.c.dral@gmail.com>", "Fons van der Plas <fons@plutojl.org>", "Paul Berg <paul@plutojl.org>"]
+authors = ["Dale Black"]  # part of the PlutoSpace fork; original Pluto.jl attribution in /LICENSE
 version = "30.31.32"
 
 [deps]

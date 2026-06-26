@@ -173,6 +173,21 @@ PlutoSpace adds the *space around* the notebooks: workspaces, tabs, terminal, re
 and first-class human + agent collaboration. `--autorun` gives you classic Pluto reactivity
 whenever you want it, byte-for-byte.
 
+**PlutoSpace is developed and owned by Dale Black / [GroupTherapyOrg](https://github.com/GroupTherapyOrg).
+It is an independent fork and is NOT developed, maintained, or endorsed by the Pluto.jl team** — please
+direct PlutoSpace questions, issues, and feedback to this repository, not to the Pluto developers.
+
+## Status
+
+⚠️ **Early and experimental.** PlutoSpace is under active development by a small team; expect rough
+edges and breaking changes. Issues and ideas are welcome on this repo.
+
+## AI disclosure
+
+Much of PlutoSpace's code is written with AI assistance (Claude). Commits are co-authored accordingly.
+
 ## License
 
-MIT — see [LICENSE](LICENSE). Pluto.jl is by Fons van der Plas and contributors.
+MIT — see [LICENSE](LICENSE). PlutoSpace is developed and owned by Dale Black / GroupTherapyOrg.
+It builds on **Pluto.jl** (© the Pluto.jl authors — Fons van der Plas and contributors, MIT), which
+retains its own copyright; the original Pluto license is preserved in [LICENSE](LICENSE).

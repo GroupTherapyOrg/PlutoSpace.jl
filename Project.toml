@@ -2,7 +2,9 @@ name = "PlutoSpace"
 uuid = "1c32774c-6937-4dfe-ba9c-80ee9278c633"
 license = "MIT"
 version = "0.1.0"
-authors = ["Dale Black (PlutoSpace)", "Fons van der Plas <fons@plutojl.org>", "Mikołaj Bochenski <github.com/malyvsen>", "Michiel Dral <m.c.dral@gmail.com>", "Παναγιώτης Γεωργακόπουλος <panagiotis@plutojl.org>", "Paul Berg <paul@plutojl.org>"]
+authors = ["Dale Black"]
+# PlutoSpace is a fork of Pluto.jl (© the Pluto.jl authors — Fons van der Plas and
+# contributors); see LICENSE for the original Pluto copyright and attribution.
 
 [apps.plutospace]
 

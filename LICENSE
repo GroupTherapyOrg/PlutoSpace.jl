@@ -1,6 +1,15 @@
 MIT License
 
-Copyright (c) 2020-2026 the Pluto.jl authors
+PlutoSpace is developed and owned by Dale Black / GroupTherapyOrg, and is NOT
+developed or endorsed by the Pluto.jl team.
+Copyright (c) 2026 Dale Black / GroupTherapyOrg (PlutoSpace).
+
+PlutoSpace is a fork of Pluto.jl and includes Pluto's original source, which
+remains under its own copyright and MIT license:
+Copyright (c) 2020-2026 the Pluto.jl authors (Fons van der Plas and contributors),
+https://github.com/fonsp/Pluto.jl.
+
+Both are licensed under the MIT License below.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
