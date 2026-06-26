@@ -25,7 +25,13 @@ module.exports = new Resolver({
     async resolve({ specifier, dependency, options }) {
         let my_temp_cave = path.join(options.cacheDir, ".net")
 
-        await new Promise((resolve) => setTimeout(resolve, 10000))
+        // Browsers use data: and blob: URLs inline — there is nothing to resolve or bundle.
+        // Leave them untouched; otherwise the resolver tries to stat them as files and the
+        // build fails (e.g. the terminal icon mask in land.css). Do this BEFORE the throttle.
+        if (specifier.startsWith("data:") || specifier.startsWith("blob:")) {
+            return DONT_INCLUDE
+        }
+
         if (dependency.specifierType === "commonjs") {
             if (specifier === "process") {
                 return { filePath: "/dev/null.js", code: "" }
@@ -78,6 +84,10 @@ module.exports = new Resolver({
             let folder = path.dirname(fullpath)
 
             if (!(await fileExists(fullpath))) {
+                // Modest throttle on actual CDN downloads (cache misses only) to avoid hammering
+                // esm.sh/jsdelivr. The original slept 10s on EVERY resolve (even local files),
+                // which made the build crawl; cached deps and local files are now instant.
+                await new Promise((resolve) => setTimeout(resolve, 1000))
                 await keep_trying(async () => {
                     let response = await fetch(specifier)
                     if (response.status !== 200) {
