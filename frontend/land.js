@@ -557,10 +557,44 @@ const TerminalView = ({ tid, cwd, visible }) => {
             fit_ref.current = fit
             term.open(node_ref.current)
 
+            // Assigned when the websocket opens (below); the paste handler needs it, so it lives out here.
+            let socket = null
+
+            // Paste from the clipboard. An image can't go through xterm's text-only paste — the bytes have
+            // to reach wherever the shell runs (local, or the remote over SSH). So read the clipboard
+            // richly: if it holds an image, base64 it and send a "2:<ext>:<base64>" frame — the server
+            // drops it in a temp file and types the path, so any CLI agent in the shell can open it.
+            // Otherwise paste text, exactly as before. Falls back to readText() if read() is unavailable.
+            const paste_from_clipboard = async () => {
+                try {
+                    if (navigator.clipboard?.read) {
+                        const items = await navigator.clipboard.read()
+                        for (const item of items) {
+                            const image_type = item.types.find((ty) => ty.startsWith("image/"))
+                            if (image_type == null) continue
+                            const bytes = new Uint8Array(await (await item.getType(image_type)).arrayBuffer())
+                            let bin = ""
+                            for (let i = 0; i < bytes.length; i += 0x8000) {
+                                bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
+                            }
+                            const ext = image_type.split("/")[1] || "png"
+                            if (socket?.readyState === WebSocket.OPEN) socket.send(`2:${ext}:${btoa(bin)}`)
+                            return
+                        }
+                    }
+                } catch {
+                    // read() can be unavailable or blocked (permissions/focus) — fall through to text
+                }
+                try {
+                    const text = await navigator.clipboard?.readText()
+                    if (text) term.paste(text)
+                } catch {}
+            }
+
             // Copy/paste: Cmd/Ctrl+C copies when there is a selection (otherwise it falls through to the
-            // shell as SIGINT); Cmd+V — and Ctrl+Shift+V — paste from the clipboard. (xterm already
-            // forwards a native browser paste to the shell; this adds the explicit shortcuts and the
-            // selection-aware copy that xterm does not do on its own.)
+            // shell as SIGINT); Cmd+V — and Ctrl+Shift+V — paste from the clipboard (text or image). (xterm
+            // already forwards a native browser paste to the shell; this adds the explicit shortcuts, the
+            // selection-aware copy that xterm does not do on its own, and image paste.)
             term.attachCustomKeyEventHandler((e) => {
                 if (e.type !== "keydown") return true
                 if ((e.metaKey || e.ctrlKey) && (e.key === "c" || e.key === "C") && term.hasSelection()) {
@@ -568,10 +602,7 @@ const TerminalView = ({ tid, cwd, visible }) => {
                     return false
                 }
                 if ((e.metaKey && e.key === "v") || (e.ctrlKey && e.shiftKey && (e.key === "v" || e.key === "V"))) {
-                    navigator.clipboard
-                        ?.readText()
-                        .then((t) => t && term.paste(t))
-                        .catch(() => {})
+                    paste_from_clipboard()
                     return false
                 }
                 return true
@@ -587,7 +618,7 @@ const TerminalView = ({ tid, cwd, visible }) => {
             // Open the shell in the workspace the client is showing (local or ssh-remote), not wherever
             // the server happened to launch. The server falls back to its workspace_folder if omitted.
             const cwd_param = cwd ? `&cwd=${encodeURIComponent(cwd)}` : ""
-            const socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}`)
+            socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}`)
             socket.binaryType = "arraybuffer"
             socket.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data))
             socket.onopen = () => {

@@ -10,13 +10,23 @@
 # Wire protocol (deliberately trivial, no parser needed on either side):
 #   client → server (text frames):   "0:<raw input>"      keystrokes for the shell
 #                                    "1:<rows>,<cols>"     terminal was resized
+#                                    "2:<ext>:<base64>"    a pasted image (see _handle_paste)
 #   server → client (binary frames): raw PTY output bytes  (feed straight to xterm.js)
 #
 # Shells end when they exit (or the server stops). The scrollback ring holds the last
 # $(TERMINAL_SCROLLBACK_LIMIT) bytes for replay on reattach.
 ###
 
+import Base64
+
 const TERMINAL_SCROLLBACK_LIMIT = 200_000
+
+# Pasted images are written to a per-terminal temp dir (never the workspace) so a CLI agent running in
+# the shell — local or, over SSH, on the remote — can open them. Bounded so storage can't grow without
+# limit: a hard size cap per paste plus a small ring of the most-recent files, and the whole dir is
+# removed when the shell exits.
+const TERMINAL_PASTE_MAX_BYTES = 10 * 1024 * 1024
+const TERMINAL_PASTE_KEEP = 10
 
 mutable struct CollabTerminal
     pty::PTY
@@ -25,6 +35,7 @@ mutable struct CollabTerminal
     lock::ReentrantLock
     pump::Task
     cwd::String   # the folder this shell was started in — so we can tell when the workspace changed under it
+    paste_dir::String   # per-terminal temp dir for pasted images (created lazily, removed when the shell exits)
 end
 
 const COLLAB_TERMINALS = Dict{String,CollabTerminal}()
@@ -32,6 +43,56 @@ const COLLAB_TERMINALS_LOCK = ReentrantLock()
 
 "Shell-quote a path for `sh -c`."
 _shquote(s::String) = "'" * replace(s, "'" => "'\\''") * "'"
+
+"Filesystem-safe form of a terminal id, for naming its paste temp dir."
+function _safe_tid(tid::AbstractString)
+    s = filter(c -> isletter(c) || isdigit(c) || c in ('-', '_'), String(tid))
+    isempty(s) ? "default" : s
+end
+
+"Keep only the `keep` most-recently-modified files in `dir`, deleting the rest. The paste ring."
+function _prune_paste_dir(dir::String, keep::Int)
+    isdir(dir) || return
+    files = filter(isfile, [joinpath(dir, f) for f in readdir(dir)])
+    length(files) <= keep && return
+    sort!(files; by=mtime)
+    for f in files[1:(length(files)-keep)]
+        try
+            rm(f; force=true)
+        catch
+        end
+    end
+end
+
+"""
+Handle a pasted image. `payload` is `<ext>:<base64>`: decode it, write it to the terminal's temp dir
+(bounded by [`TERMINAL_PASTE_MAX_BYTES`] and a [`TERMINAL_PASTE_KEEP`]-file ring — never the workspace),
+and type the file's path into the shell so a CLI agent can open it. The path lands on whichever machine
+the shell runs on, so this works identically for a local shell and an SSH-remote one. Malformed or
+oversized pastes are silently dropped.
+"""
+function _handle_paste(t::CollabTerminal, payload::AbstractString)
+    p = String(payload)
+    sep = findfirst(==(':'), p)
+    sep === nothing && return
+    ext = lowercase(filter(c -> isletter(c) || isdigit(c), p[1:sep-1]))
+    isempty(ext) && (ext = "png")
+    bytes = try
+        Base64.base64decode(p[sep+1:end])
+    catch
+        return
+    end
+    (isempty(bytes) || length(bytes) > TERMINAL_PASTE_MAX_BYTES) && return
+    try
+        mkpath(t.paste_dir)
+        _prune_paste_dir(t.paste_dir, TERMINAL_PASTE_KEEP - 1)
+        path = joinpath(t.paste_dir, "paste-$(time_ns()).$(ext)")
+        write(path, bytes)
+        # type the path (with a trailing space, never a newline — don't submit for the user)
+        pty_write(t.pty, path * " ")
+    catch
+    end
+end
 
 """
 Resolve the directory an integrated terminal should open in. Preference order:
@@ -103,7 +164,11 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
             end
         end
 
-        t = CollabTerminal(_spawn_workspace_shell(session, target), UInt8[], Set{Any}(), ReentrantLock(), @async(nothing), target)
+        # Per-instance temp dir (the time_ns suffix keeps it unique): switching workspace retires this
+        # shell and starts a new one with the same tid, and we must not let the retired shell's teardown
+        # delete the new shell's pasted files.
+        paste_dir = joinpath(tempdir(), "plutospace-paste-$(_safe_tid(tid))-$(time_ns())")
+        t = CollabTerminal(_spawn_workspace_shell(session, target), UInt8[], Set{Any}(), ReentrantLock(), @async(nothing), target, paste_dir)
         t.pump = @asynclog begin
             for data in t.pty.output
                 lock(t.lock) do
@@ -131,6 +196,10 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
             end
             lock(COLLAB_TERMINALS_LOCK) do
                 get(COLLAB_TERMINALS, tid, nothing) === t && delete!(COLLAB_TERMINALS, tid)
+            end
+            try
+                rm(t.paste_dir; recursive=true, force=true)
+            catch
             end
         end
         COLLAB_TERMINALS[tid] = t
@@ -168,6 +237,8 @@ function handle_terminal_websocket(ws, session::ServerSession, query::Dict{Strin
                             pty_resize!(t.pty, rows, cols)
                         end
                     end
+                elseif startswith(message, "2:")
+                    _handle_paste(t, SubString(message, 3))
                 end
             elseif message isa Vector{UInt8}
                 pty_write(t.pty, message)
