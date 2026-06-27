@@ -39,9 +39,11 @@ PlutoSpace.run()        # lazy collab mode is the default
    HPC compute node, from colliding). The `bin/pluto-collab` CLI uses it to find your server:
 
    ```
-   pluto-collab status notebook.jl            # per-cell: stale / cold / errored / output
+   pluto-collab status notebook.jl            # per-cell: stale / cold / errored / output (digest)
    pluto-collab run notebook.jl --stale       # run all stale cells; blocks; exit 1 on error
    pluto-collab run notebook.jl --cell <id>   # run one cell (+ its stale/cold ancestors)
+   pluto-collab output notebook.jl --cell <id>  # read one cell's full output (status truncates; this doesn't)
+   pluto-collab figure notebook.jl --cell <id>  # save one cell's rendered image to a file (PNG/SVG/…)
    pluto-collab interrupt notebook.jl         # stop a running notebook
    pluto-collab restart notebook.jl           # restart kernel + re-run all — recover a dead worker
    pluto-collab status notebook.jl --json     # same, structured
@@ -116,7 +118,10 @@ CLAUDE.md too):
 Notebooks (`*.jl` with Pluto cell markers) may be OPEN in a live lazy-mode Pluto server.
 - Edit notebook files directly with your file tools. Edits only mark cells stale — nothing
   runs until requested, and the human sees staleness live in their browser.
-- `pluto-collab status <nb.jl>` shows per-cell state and outputs.
+- `pluto-collab status <nb.jl>` shows per-cell state and a short output digest.
+- `pluto-collab output <nb.jl> --cell <id>` reads one cell's FULL output (status truncates long
+  output; this gives you all of it). `pluto-collab figure <nb.jl> --cell <id>` saves a cell's
+  rendered image — a plot, etc. — to a file you can open and look at.
 - `pluto-collab run <nb.jl> --stale` runs exactly what's outdated (blocking; exit 1 if a
   cell errors). Never re-run the whole notebook.
 - `pluto-collab restart <nb.jl>` restarts the kernel and re-runs everything — use it ONLY to

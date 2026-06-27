@@ -48,23 +48,25 @@ function _output_from_dict(d::Dict)::CellOutput
     )
 end
 
-"A short plain-text view of a cell's output, for humans and external tools reading the sidecar."
-function _text_representation(cell::Cell)::String
+"A plain-text view of a cell's output, for humans and external tools (the sidecar digest, and the
+agent API). `limit` caps the length — the status digest uses the default; the per-cell API endpoint
+passes a larger limit so an agent can read a cell's full result."
+function _text_representation(cell::Cell; limit::Integer=TEXT_REPRESENTATION_LIMIT)::String
     body = cell.output.body
     if cell.errored && body isa Dict
         msg = get(body, :msg, get(body, "msg", ""))
-        msg isa String ? first(msg, TEXT_REPRESENTATION_LIMIT) : "[error]"
+        msg isa String ? first(msg, limit) : "[error]"
     elseif body isa String
-        length(body) > TEXT_REPRESENTATION_LIMIT ?
-            first(body, TEXT_REPRESENTATION_LIMIT) * "\n…[truncated $(length(body) - TEXT_REPRESENTATION_LIMIT) characters — full output in output_packed]" :
+        length(body) > limit ?
+            first(body, limit) * "\n…[truncated $(length(body) - limit) characters — full output in output_packed]" :
             body
     elseif body isa Vector{UInt8}
-        "[binary output: $(cell.output.mime), $(length(body)) bytes]"
+        "[binary output: $(cell.output.mime), $(length(body)) bytes — fetch it with `pluto-collab figure`]"
     elseif body isa Dict
         # rich (tree/table) output: use the plain-text repr captured in the worker
         isempty(cell.output_text) ?
             "[rich output: $(cell.output.mime) — open in Pluto, or unpack output_packed]" :
-            first(cell.output_text, TEXT_REPRESENTATION_LIMIT)
+            first(cell.output_text, limit)
     else
         ""
     end

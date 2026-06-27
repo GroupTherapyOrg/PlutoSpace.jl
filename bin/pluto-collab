@@ -16,7 +16,9 @@
 # Commands:
 #   pluto-collab servers                          list live PlutoSpace servers
 #   pluto-collab notebooks                        list open notebooks on all live servers
-#   pluto-collab status <notebook.jl> [--json]    per-cell state: stale / cold / errored / output
+#   pluto-collab status <notebook.jl> [--json]    per-cell state: stale / cold / errored / output (digest)
+#   pluto-collab output <notebook.jl> --cell <id> [--json]   one cell's FULL output (untruncated)
+#   pluto-collab figure <notebook.jl> --cell <id> [--out f]  write one cell's rendered image to a file
 #   pluto-collab run <notebook.jl> --stale        run all stale cells (and their dependents)
 #   pluto-collab run <notebook.jl> --cell <id> [--cell <id>…]   run specific cells
 #       (other cells' pending changes are NOT pulled in — like vanilla Pluto, a run uses
@@ -140,6 +142,57 @@ case "$cmd" in
             "$BASE/api/v1/notebook" || { err "request failed"; exit 2; }
         ;;
 
+    output)
+        [ $# -ge 4 ] || { err "usage: pluto-collab output <notebook.jl> --cell <id> [--json]"; exit 2; }
+        require_server "$2"
+        shift 2
+        fmt=text; cell=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --cell) shift; cell="$1" ;;
+                --json) fmt=json ;;
+                *) err "unknown argument: $1"; exit 2 ;;
+            esac
+            shift
+        done
+        [ -n "$cell" ] || { err "specify --cell <id>"; exit 2; }
+        curl -sf -G --data-urlencode "path=$NB_PATH" -d "cell=$cell" -d "format=$fmt" -d "secret=$SECRET" \
+            "$BASE/api/v1/notebook/cell" || { err "request failed"; exit 2; }
+        ;;
+
+    figure)
+        [ $# -ge 4 ] || { err "usage: pluto-collab figure <notebook.jl> --cell <id> [--out <file>]"; exit 2; }
+        require_server "$2"
+        shift 2
+        cell=""; out=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --cell) shift; cell="$1" ;;
+                --out) shift; out="$1" ;;
+                *) err "unknown argument: $1"; exit 2 ;;
+            esac
+            shift
+        done
+        [ -n "$cell" ] || { err "specify --cell <id>"; exit 2; }
+        hdr=$(mktemp); tmp=$(mktemp)
+        code=$(curl -s -G -D "$hdr" -o "$tmp" -w '%{http_code}' \
+            --data-urlencode "path=$NB_PATH" -d "cell=$cell" -d "secret=$SECRET" \
+            "$BASE/api/v1/notebook/figure")
+        if [ "$code" != "200" ]; then
+            cat "$tmp" >&2          # server's text error (not an image / no such cell)
+            rm -f "$hdr" "$tmp"; exit 2
+        fi
+        if [ -z "$out" ]; then     # derive extension from the image's Content-Type
+            ct=$(sed -n 's/^[Cc]ontent-[Tt]ype: *\([^; ]*\).*/\1/p' "$hdr" | tr -d '\r')
+            case "$ct" in
+                image/png) ext=png ;; image/jpeg) ext=jpg ;; image/svg+xml) ext=svg ;; image/gif) ext=gif ;; *) ext=img ;;
+            esac
+            out="cell-$(printf '%s' "$cell" | cut -c1-8).$ext"
+        fi
+        mv "$tmp" "$out"; rm -f "$hdr"
+        echo "wrote $out"
+        ;;
+
     run)
         [ $# -ge 3 ] || { err "usage: pluto-collab run <notebook.jl> --stale | --cell <id>… [--json]"; exit 2; }
         require_server "$2"
@@ -197,7 +250,7 @@ case "$cmd" in
         ;;
 
     help|--help|-h|*)
-        sed -n '2,33p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '2,35p' "$0" | sed 's/^# \{0,1\}//'
         [ "$cmd" = help ] || [ "$cmd" = --help ] || [ "$cmd" = -h ] || exit 2
         ;;
 esac

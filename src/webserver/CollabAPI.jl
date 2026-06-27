@@ -245,6 +245,68 @@ function register_collab_api!(router, session::ServerSession)
     end
     HTTP.register!(router, "GET", "/api/v1/notebook", serve_api_notebook)
 
+    # Read ONE cell's FULL output (the status digest caps each cell at 20k; this returns up to 200k
+    # so an agent can pull a long result it saw truncated in `status`).
+    function serve_api_cell(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        fmt_text = _api_wants_text(query)
+        notebook = _api_notebook_from_query(session, query)
+        notebook === nothing && return _api_error(404, "notebook not found — is it open in this server? (pass ?path=/abs/path.jl or ?id=<uuid>)", fmt_text)
+        haskey(query, "cell") || return _api_error(400, "specify ?cell=<uuid>", fmt_text)
+        cid = try
+            UUID(strip(query["cell"]))
+        catch
+            return _api_error(400, "invalid cell id: $(query["cell"])", fmt_text)
+        end
+        haskey(notebook.cells_dict, cid) || return _api_error(404, "no cell with id $(query["cell"])", fmt_text)
+        cell = notebook.cells_dict[cid]
+        full = _text_representation(cell; limit=200_000)
+        if fmt_text
+            flags = String[]
+            cell.stale && push!(flags, "STALE"); cell.workspace_cold && push!(flags, "COLD")
+            cell.running && push!(flags, "RUNNING"); cell.queued && push!(flags, "QUEUED")
+            cell.errored && push!(flags, "ERRORED")
+            state = isempty(flags) ? "fresh" : join(flags, ",")
+            body = "cell: $(cell.cell_id)\nstate: $(state)\nmime: $(cell.output.mime)\n\ncode:\n$(cell.code)\n\noutput:\n$(full)\n"
+            HTTP.Response(200, ["Content-Type" => "text/plain; charset=utf-8"], body)
+        else
+            body = _json(Pair[
+                "cell_id" => string(cell.cell_id),
+                "code" => cell.code,
+                "stale" => cell.stale, "workspace_cold" => cell.workspace_cold,
+                "queued" => cell.queued, "running" => cell.running, "errored" => cell.errored,
+                "mime" => string(cell.output.mime),
+                "output_text" => full,
+            ])
+            HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], body * "\n")
+        end
+    end
+    HTTP.register!(router, "GET", "/api/v1/notebook/cell", serve_api_cell)
+
+    # Read ONE cell's rendered figure as raw image bytes — opt-in (separate request), so figures
+    # never bloat `status`. Only when the cell's output mime is image/* (png/svg/jpeg/…).
+    function serve_api_figure(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        notebook = _api_notebook_from_query(session, query)
+        notebook === nothing && return _api_error(404, "notebook not found — is it open? (pass ?path= or ?id=)", true)
+        haskey(query, "cell") || return _api_error(400, "specify ?cell=<uuid>", true)
+        cid = try
+            UUID(strip(query["cell"]))
+        catch
+            return _api_error(400, "invalid cell id: $(query["cell"])", true)
+        end
+        haskey(notebook.cells_dict, cid) || return _api_error(404, "no cell with id $(query["cell"])", true)
+        cell = notebook.cells_dict[cid]
+        mime = string(cell.output.mime)
+        startswith(mime, "image/") || return _api_error(415, "cell $(cell.cell_id) output is $(mime), not an image — use `status`/the cell endpoint for text & rich results", true)
+        body = cell.output.body
+        bytes = body isa Vector{UInt8} ? body :
+                body isa String ? Vector{UInt8}(codeunits(body)) :
+                return _api_error(404, "cell $(cell.cell_id) has no image bytes", true)
+        HTTP.Response(200, ["Content-Type" => mime], bytes)
+    end
+    HTTP.register!(router, "GET", "/api/v1/notebook/figure", serve_api_figure)
+
     function serve_api_run(request::HTTP.Request)
         query = HTTP.queryparams(HTTP.URI(request.target))
         fmt_text = _api_wants_text(query)

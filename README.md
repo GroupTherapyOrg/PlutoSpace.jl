@@ -115,7 +115,7 @@ browser *or* on disk** — marks it (and everything downstream) **stale** instea
 run executes **exactly the stale closure and nothing more.** That makes it safe for a human in the
 browser and **any coding agent in any terminal** to work on the **same live notebook** at once —
 same kernel, same state. The agent edits the `.jl` with its normal file tools; the human watches
-those cells go **amber within a second**, then runs them. No MCP, no plugins.
+those cells go **amber within a second**, then runs them. No MCP, no plugins — just a small CLI, [`pluto-collab`](bin/pluto-collab).
 
 <div align="center">
 <img src="assets/pspace-lazy-edits-dark.png" width="920" alt="Split view: a coding agent (Claude Code) editing the notebook on the right while PlutoSpace shows the affected cells go stale on the left">
@@ -125,14 +125,17 @@ The whole agent surface is boring plumbing:
 
 - a **connection file** at `~/.local/state/pluto/servers/<port>.json` (port + secret — the Jupyter idiom),
 - a plain **HTTP API** at `/api/v1/…`,
-- the [`pluto-collab`](bin/pluto-collab) CLI (just `curl` + `sed`):
+- the [`pluto-collab`](bin/pluto-collab) CLI (just `curl` + `sed`) — the whole tool an agent needs to drive a notebook:
 
 ```sh
-pluto-collab status notebook.jl          # per-cell: stale / cold / errored / output
-pluto-collab run    notebook.jl --stale  # run exactly what's outdated (blocking; exit 1 on error)
+pluto-collab status notebook.jl              # per-cell state: stale / cold / errored / output
+pluto-collab run    notebook.jl --stale      # run exactly what's outdated (blocking; exit 1 on error)
+pluto-collab output notebook.jl --cell <id>  # read a cell's full output
+pluto-collab figure notebook.jl --cell <id>  # save a cell's plot to an image file
 ```
 
-Runs requested over HTTP go through the **same execution queue** as browser clicks — both sides see
+So an agent doesn't just edit and run — it can **read the results back**, including saving a rendered
+plot as an image it can actually look at. Runs requested over HTTP go through the **same execution queue** as browser clicks — both sides see
 each other's cells turn amber → running → green live. Staleness is verified against content-addressed
 **execution keys**, so reverting an edit un-stales a cell with no run at all. See
 **[COLLAB.md](COLLAB.md)** for the full story and an `AGENTS.md` stanza you can drop into any repo.
