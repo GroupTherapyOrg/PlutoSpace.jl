@@ -297,6 +297,45 @@ body.resizing #frames iframe {
     overflow-y: auto;
 }
 
+/* the Workspace heading becomes a row: WORKSPACE label, then the git-branch chip,
+   then the + action pinned right (margin-left: auto on .h2-action above) */
+#land > aside section.files > h2 {
+    display: flex;
+    align-items: center;
+}
+
+/* git branch indicator: quiet, mixed-case (not uppercased like the label), sits next
+   to the WORKSPACE heading. Shown only when the workspace folder is inside a git repo. */
+#land .git-branch {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    margin-left: 0.5rem;
+    min-width: 0;
+    max-width: 58%;
+    font-size: 0.72rem;
+    text-transform: none; /* branch names are case-sensitive */
+    letter-spacing: 0;
+    font-family: var(--julia-mono-font-stack, monospace);
+}
+
+#land .git-branch-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#land .git-branch-icon {
+    flex-shrink: 0;
+    width: 0.95em;
+    height: 0.95em;
+    background-image: url("https://cdn.jsdelivr.net/gh/ionic-team/ionicons@5.5.1/src/svg/git-branch-outline.svg");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: var(--image-filters);
+}
+
 .entry {
     display: block;
     width: 100%;
@@ -385,7 +424,7 @@ body.resizing #frames iframe {
 #land h2 .row-action.h2-action {
     font-size: 0.9rem;
     padding: 0 0.4rem;
-    margin-left: 0.2rem;
+    margin-left: auto; /* keep the + pinned to the far right, past the branch chip */
 }
 
 .icon {

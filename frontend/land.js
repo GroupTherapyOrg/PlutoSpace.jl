@@ -755,7 +755,7 @@ const FileEditorPane = ({ path, visible }) => {
 }
 
 const Land = () => {
-    const [workspace, set_workspace] = useState(/** @type {{root: String, entries: Array}?} */ (null))
+    const [workspace, set_workspace] = useState(/** @type {{root: String, entries: Array, git?: {branch: String, detached: Boolean}?}?} */ (null))
     const [no_workspace, set_no_workspace] = useState(false)
     const [running, set_running] = useState(/** @type {Array<{notebook_id: String, path: String}>} */ ([]))
     const [tabs, set_tabs] = useState(/** @type {Array<{id: String, path: String, kind?: String}>} */ ([]))
@@ -1196,6 +1196,14 @@ const Land = () => {
                 <section class="files bubble">
                     <h2>
                         Workspace
+                        ${workspace?.git == null
+                            ? null
+                            : html`<span
+                                  class="git-branch"
+                                  title=${workspace.git.detached ? `Detached HEAD at ${workspace.git.branch}` : `On branch ${workspace.git.branch}`}
+                              >
+                                  <span class="git-branch-icon"></span><span class="git-branch-name">${workspace.git.branch}</span>
+                              </span>`}
                         ${workspace == null
                             ? null
                             : html`<button class="row-action h2-action" title="New notebook or file in the workspace root" onClick=${() => create_in(workspace.root)}>+</button>`}

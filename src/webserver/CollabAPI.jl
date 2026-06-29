@@ -133,6 +133,62 @@ function _workspace_entries(dir::String; depth::Int=6, budget::Ref{Int}=Ref(2000
     entries
 end
 
+# Walk up from `dir` to the repo's `.git` (a directory, or — for linked worktrees and
+# submodules — a file holding "gitdir: <path>"), read its HEAD, and return the current
+# branch. Reads the files directly: no `git` subprocess, no dependency on a git binary.
+# → ("main", false) on a branch; ("a1b2c3d", true) on a detached HEAD; nothing if not a repo.
+function _git_head_info(dir::String)
+    git_path = nothing
+    d = dir
+    while true
+        candidate = joinpath(d, ".git")
+        if ispath(candidate)
+            git_path = candidate
+            break
+        end
+        parent = dirname(d)
+        parent == d && break # reached the filesystem root
+        d = parent
+    end
+    git_path === nothing && return nothing
+
+    gitdir = if isdir(git_path)
+        git_path
+    else
+        line = try
+            strip(read(git_path, String))
+        catch
+            return nothing
+        end
+        startswith(line, "gitdir:") || return nothing
+        p = strip(line[(ncodeunits("gitdir:") + 1):end])
+        isabspath(p) ? p : normpath(joinpath(dirname(git_path), p))
+    end
+
+    head_file = joinpath(gitdir, "HEAD")
+    isfile(head_file) || return nothing
+    head = try
+        strip(read(head_file, String))
+    catch
+        return nothing
+    end
+    if startswith(head, "ref:")
+        ref = strip(replace(head, r"^ref:\s*" => ""))
+        branch = replace(ref, r"^refs/heads/" => "")
+        isempty(branch) ? nothing : (branch, false)
+    else
+        sha = first(head, 7) # detached HEAD: a raw commit sha
+        isempty(sha) ? nothing : (sha, true)
+    end
+end
+
+function _git_workspace_info(dir::String)::Union{Vector{Pair},Nothing}
+    info = _git_head_info(dir)
+    info === nothing && return nothing
+    branch, detached = info
+    Pair["branch" => branch, "detached" => detached]
+end
+
 # --- the API routes ---
 
 function _api_cell_pairs(cell::Cell)::Vector{Pair}
@@ -454,6 +510,7 @@ function register_collab_api!(router, session::ServerSession)
         body = _json(Pair[
             "root" => root,
             "entries" => _workspace_entries(root),
+            "git" => _git_workspace_info(root),
         ])
         HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], body * "\n")
     end
