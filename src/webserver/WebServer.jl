@@ -220,7 +220,13 @@ function run!(session::ServerSession)
                     rethrow(e)
                 end
             end
-            if !secret_required || is_authenticated(session, http.message)
+            # A WebSocket handshake is a GET, so it slips past the HTTP CSRF guard in auth_middleware
+            # — enforce the same-origin check here. This is the lever that closes cross-site
+            # WebSocket hijacking of BOTH the notebook protocol (arbitrary cell execution) and the
+            # /terminal shell bridge (arbitrary command execution): a page on another localhost port
+            # is same-site for the cookie, but its Origin never matches our Host. Non-browser clients
+            # (no Origin) still pass and must present the secret via cookie/?secret as before.
+            if (!secret_required || is_authenticated(session, http.message)) && origin_matches_host(http.message)
                 if startswith(HTTP.URI(http.message.target).path, "/terminal")
                     # the PlutoSpace integrated terminal: a raw PTY bridge, separate from the notebook protocol
                     terminal_query = HTTP.queryparams(HTTP.URI(http.message.target))

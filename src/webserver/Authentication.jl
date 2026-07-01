@@ -57,6 +57,49 @@ function add_set_secret_cookie!(session::ServerSession, response::HTTP.Response)
     response
 end
 
+"""
+    origin_matches_host(request) -> Bool
+
+Cross-origin defense for requests that carry ambient credentials (the secret cookie).
+
+`SameSite=Strict` is NOT enough on its own here: a cookie's scope is host + name + path —
+**the port is not part of it** — and browsers treat every `localhost:<port>` as the *same site*.
+So a page served from any *other* local port (a second dev server, a docs preview, a compromised
+dependency's dev server) is same-site with this one, and the browser will happily attach our
+`pluto_secret_<port>` cookie to a request it initiates at us. That turns two of the fork's
+additions into remote code execution: the `/terminal` WebSocket (an interactive shell) and the
+`POST /api/v1/file/*` endpoints (arbitrary-path file writes).
+
+The robust signal a browser cannot forge from another origin is the `Origin` header: it always
+reflects the page that initiated the request, and script cannot set it. So:
+
+  • No `Origin` header → allow. Non-browser clients (the `pluto-collab` CLI, `curl`, native
+    WebSocket libraries) don't send one, and they are not a CSRF vector — they must still present
+    the secret. A browser NEVER omits `Origin` on a WebSocket handshake or a cross-origin fetch.
+  • `Origin` present → its authority (host:port) must equal the request's `Host`. The legitimate
+    same-origin frontend always matches; a cross-origin attacker page never can.
+
+Fails closed (unparseable Origin, or absent Host → reject). This is a backstop that holds even
+in the dangerous `require_secret_for_access=false` Binder config, where the same-origin frontend
+still matches but any attacker origin is refused.
+"""
+function origin_matches_host(request::HTTP.Request)::Bool
+    origin = HTTP.header(request, "Origin", "")
+    isempty(origin) && return true
+    host = HTTP.header(request, "Host", "")
+    isempty(host) && return false
+    return try
+        o = HTTP.URI(origin)
+        authority = isempty(o.port) ? o.host : "$(o.host):$(o.port)"
+        authority == host
+    catch
+        false
+    end
+end
+
+"HTTP methods that (by spec) don't change server state — the browser sends them freely, so they carry no CSRF risk on their own. Anything else must pass [`origin_matches_host`]."
+is_safe_http_method(request::HTTP.Request)::Bool = uppercase(request.method) in ("GET", "HEAD", "OPTIONS")
+
 # too many layers i know
 """
 Generate a middleware (i.e. a function `HTTP.Handler -> HTTP.Handler`) that stores the `session` in every `request`'s context.
@@ -111,7 +154,15 @@ function auth_middleware(handler)
     return function (request::HTTP.Request)
         session = session_from_context(request)
         required = auth_required(session, request)
-        
+
+        # CSRF backstop: a state-changing request that carries a mismatched browser Origin is a
+        # cross-site forgery riding the ambient cookie (see origin_matches_host). Refuse it before
+        # it can write a file / open a workspace / shut the server down — even in no-secret Binder
+        # mode. Safe methods and non-browser clients (no Origin) are unaffected.
+        if !is_safe_http_method(request) && !origin_matches_host(request)
+            return error_response(403, "Cross-origin request blocked", "This request was refused because its <em>Origin</em> does not match the server. If you are a developer calling this API, connect from the same origin or omit the browser Origin header.")
+        end
+
         if !required || is_authenticated(session, request)
             response = handler(request)
             if !required
