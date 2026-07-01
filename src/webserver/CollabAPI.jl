@@ -63,16 +63,42 @@ collab_registry_dir() = joinpath(get(ENV, "XDG_STATE_HOME", joinpath(homedir(), 
 _registry_node() = replace(gethostname(), r"[^A-Za-z0-9._-]" => "_")
 collab_registry_path(port::Integer) = joinpath(collab_registry_dir(), "$(_registry_node())-$(port).json")
 
-"Write the connection file that lets external tools discover this live server (port + secret). Flat JSON, greppable with sed — clients need no JSON parser."
+"""
+Create/replace a file that is mode 0o600 from the instant it exists — no world-readable window.
+Plain `write(path, …)` creates at the umask (typically 0o644) and would need a follow-up chmod to
+narrow it, and on a shared \$HOME (the NFS cluster home the node-tagging targets) a co-tenant can
+read the secret in that create→chmod race. Passing the mode to the create closes the window: the
+file is born 0o600 (umask only clears bits, and 0o600 has none to clear). libuv normalizes the
+open flags across platforms; on Windows the mode maps to owner read/write (best effort).
+"""
+function _write_private_file(path::String, contents::AbstractString)
+    # Remove any stale file first: open() applies the create mode only when it actually creates
+    # the file, so an existing wider-permission file would keep its old mode.
+    try
+        isfile(path) && rm(path; force=true)
+    catch
+    end
+    flags = Base.Filesystem.JL_O_WRONLY | Base.Filesystem.JL_O_CREAT | Base.Filesystem.JL_O_TRUNC
+    f = Base.Filesystem.open(path, flags, 0o600)
+    try
+        write(f, contents)
+    finally
+        close(f)
+    end
+    path
+end
+
+"Write the connection file that lets external tools discover this live server (port + secret). Flat JSON, greppable with sed — clients need no JSON parser. Mode 0o600: it holds the access secret."
 function write_collab_registry_file(session::ServerSession, port::Integer)
     dir = collab_registry_dir()
     mkpath(dir)
+    try
+        Sys.iswindows() || chmod(dir, 0o700)  # the registry dir holds secrets; keep it owner-only
+    catch
+    end
     path = collab_registry_path(port)
     ws = session.options.server.workspace_folder
-    write(path, """{"pid": $(getpid()), "host": $(_json_string(session.options.server.host)), "port": $(port), "node": $(_json_string(gethostname())), "secret": $(_json_string(session.secret)), "workspace": $(ws === nothing ? "null" : _json_string(tamepath(ws))), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
-    try
-        chmod(path, 0o600) # the file contains the access secret
-    catch end
+    _write_private_file(path, """{"pid": $(getpid()), "host": $(_json_string(session.options.server.host)), "port": $(port), "node": $(_json_string(gethostname())), "secret": $(_json_string(session.secret)), "workspace": $(ws === nothing ? "null" : _json_string(tamepath(ws))), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
     path
 end
 

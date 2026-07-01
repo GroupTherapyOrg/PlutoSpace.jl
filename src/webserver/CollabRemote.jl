@@ -393,9 +393,13 @@ function _remote_connect_task!(r::RemoteSession)
         try
             dir = collab_registry_dir()
             mkpath(dir)
+            try
+                Sys.iswindows() || chmod(dir, 0o700)
+            catch
+            end
             path = collab_registry_path(local_port)
-            write(path, """{"pid": $(getpid()), "host": "127.0.0.1", "port": $(local_port), "node": $(_json_string(gethostname())), "secret": $(_json_string(remote.secret)), "remote_ssh_host": $(_json_string(r.host)), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
-            chmod(path, 0o600)
+            # 0o600 from creation (holds the remote's secret) — see _write_private_file.
+            _write_private_file(path, """{"pid": $(getpid()), "host": "127.0.0.1", "port": $(local_port), "node": $(_json_string(gethostname())), "secret": $(_json_string(remote.secret)), "remote_ssh_host": $(_json_string(r.host)), "pluto_version": $(_json_string(PLUTO_VERSION_STR)), "started_at": $(time())}\n""")
         catch end
         r.state = "ready"
         r.detail = "connected — the workspace runs on $(r.host)"
@@ -479,7 +483,10 @@ function register_collab_remote!(router, session::ServerSession)
         query = HTTP.queryparams(HTTP.URI(request.target))
         haskey(query, "host") || return _api_error(400, "pass ?host=<ssh-config-host>", false)
         host = query["host"]
-        occursin(r"^[A-Za-z0-9._@-]+$", host) || return _api_error(400, "invalid host name", false)
+        # Reject a leading '-' so the host can't be read by ssh as an option (`-Ffile`, `-D1234`,
+        # …). The rest of the charset already excludes '=' , '/' and space, so no option that needs
+        # an argument can be smuggled; this closes the last argv-injection foothold.
+        (occursin(r"^[A-Za-z0-9._@-]+$", host) && !startswith(host, "-")) || return _api_error(400, "invalid host name", false)
         r = open_remote_session!(host)
         HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], remote_status_json(r))
     end
