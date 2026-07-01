@@ -836,6 +836,14 @@ const FileEditorPane = ({ path, visible }) => {
                     }),
                     parent: node_ref.current,
                 })
+                // Unmounted while the dynamic import / file read was in flight: don't attach a view
+                // to a detached node (it would leak with no way to destroy it).
+                if (node_ref.current == null) {
+                    try {
+                        view.destroy()
+                    } catch {}
+                    return
+                }
                 view_ref.current = view
                 set_status("")
             } catch (e) {
@@ -843,6 +851,17 @@ const FileEditorPane = ({ path, visible }) => {
             }
         })()
     }, [visible])
+
+    // Destroy the CodeMirror EditorView on unmount (closing the file tab) — otherwise the view, its
+    // DOM, keymaps, and the update listener leak for every file opened and closed.
+    useEffect(() => {
+        return () => {
+            try {
+                view_ref.current?.destroy()
+            } catch {}
+            view_ref.current = null
+        }
+    }, [])
 
     return html`<div class="file-pane">
         <div class="file-toolbar">
@@ -1000,6 +1019,26 @@ const Land = () => {
         localStorage.setItem(TERMINALS_KEY, JSON.stringify(terminals.map((t) => ({ tid: t.tid, label: t.label }))))
     }, [terminals])
 
+    // Warn before a browser close/reload discards unsaved FILE edits. File buffers are client-only
+    // until Save hits ./api/v1/file/save; notebooks persist server-side, and terminals reattach on
+    // reload, so this covers the one thing that's actually lost. Only prompts when something is dirty.
+    useEffect(() => {
+        const on_beforeunload = (e) => {
+            let any_dirty = false
+            for (const v of file_dirty.values())
+                if (v) {
+                    any_dirty = true
+                    break
+                }
+            if (any_dirty) {
+                e.preventDefault()
+                e.returnValue = "" // some browsers require this to show the native prompt
+            }
+        }
+        window.addEventListener("beforeunload", on_beforeunload)
+        return () => window.removeEventListener("beforeunload", on_beforeunload)
+    }, [])
+
     const start_terminal_resize = useCallback(
         (e) => {
             e.preventDefault()
@@ -1067,6 +1106,9 @@ const Land = () => {
             } else if (ws_response.ok) {
                 set_no_workspace(false)
                 set_workspace(await ws_response.json())
+            } else {
+                // Any other status (e.g. 500) — don't silently leave stale workspace state on screen.
+                throw new Error(`workspace request failed: ${ws_response.status}`)
             }
             const running_now = await get_json("./api/v1/notebooks")
             set_running(running_now)
@@ -1253,11 +1295,29 @@ const Land = () => {
             )
         )
             return
-        try {
-            await fetch("./api/v1/shutdown", { method: "POST" })
-        } catch (e) {}
-        document.body.innerHTML =
-            '<div style="font: 15px/1.6 system-ui, sans-serif; padding: 3rem; text-align: center; color: #888">PlutoSpace has shut down. You can close this tab.</div>'
+        // Fire the shutdown, but don't trust the request's own result: a SUCCESSFUL shutdown usually
+        // makes it throw (the server dies mid-response, so the connection resets). Instead verify the
+        // server is really gone by polling /ping — and only then declare it down. If it keeps
+        // answering past the grace period, say so rather than lying that it shut down.
+        fetch("./api/v1/shutdown", { method: "POST" }).catch(() => {})
+        const still_up = async () => {
+            try {
+                await fetch("./ping", { method: "GET", cache: "no-store" })
+                return true
+            } catch {
+                return false
+            }
+        }
+        const deadline = Date.now() + 8000
+        while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 400))
+            if (!(await still_up())) {
+                document.body.innerHTML =
+                    '<div style="font: 15px/1.6 system-ui, sans-serif; padding: 3rem; text-align: center; color: #888">PlutoSpace has shut down. You can close this tab.</div>'
+                return
+            }
+        }
+        set_error("Shutdown was requested, but the server is still responding — it may not have shut down.")
     }, [])
 
     // The opener is "homebase": it shows on first launch (no workspace) and on demand (the "open another
