@@ -192,6 +192,12 @@ function run!(session::ServerSession)
             close_all_local_sessions()
         catch
         end
+        # reap integrated-terminal shells — they're session leaders (SETSID) so they get no SIGHUP
+        # from the dying server and would otherwise orphan onto init
+        try
+            close_all_terminals!()
+        catch
+        end
         # TODO: put do_work tokens back
         @async swallow_exception(() -> close(serversocket), Base.IOError)
         for client in values(session.connected_clients)

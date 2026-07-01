@@ -219,6 +219,12 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
         t = CollabTerminal(_spawn_workspace_shell(session, target; rows=rows, cols=cols), UInt8[], false, Set{Any}(), ReentrantLock(), @async(nothing), target, paste_dir)
         t.pump = @asynclog begin
             for data in t.pty.output
+                # Update scrollback and snapshot the client set UNDER the lock, but do the blocking
+                # WebSocket sends OUTSIDE it. Holding t.lock across a send let one slow/stalled
+                # client stall every mirror and block attach/detach — and, by wedging the single
+                # pump task, back-pressure pty.output until the shell itself froze on write. There
+                # is exactly one pump task per terminal, so sends stay ordered without the lock.
+                local recipients
                 lock(t.lock) do
                     append!(t.scrollback, data)
                     extra = length(t.scrollback) - TERMINAL_SCROLLBACK_LIMIT
@@ -226,12 +232,20 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
                         deleteat!(t.scrollback, 1:extra)
                         t.scrollback_trimmed = true
                     end
-                    for client in collect(t.clients)
-                        try
-                            HTTP.WebSockets.send(client, data)
-                        catch
-                            delete!(t.clients, client)
-                        end
+                    recipients = collect(t.clients)
+                end
+                dead = nothing
+                for client in recipients
+                    try
+                        HTTP.WebSockets.send(client, data)
+                    catch
+                        dead === nothing && (dead = [])
+                        push!(dead, client)
+                    end
+                end
+                dead === nothing || lock(t.lock) do
+                    for client in dead
+                        delete!(t.clients, client)
                     end
                 end
             end
@@ -262,6 +276,50 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
         COLLAB_TERMINALS[tid] = t
         return t
     end
+end
+
+"""
+Explicitly end the terminal for `tid`: close its shell and free every resource. Used when the
+user CLOSES a terminal tab (the × button) — as opposed to just hiding the panel or reloading,
+which intentionally leave the shell running for reattach. Idempotent and safe to call for an
+unknown tid. Returns whether a live terminal was found and closed.
+
+Detaching a socket (unmount on hide / dock switch / reload) must NOT reach here — only the tab's
+delete does — so persistent-shell semantics are preserved for every case except a real close.
+"""
+function close_terminal!(tid::AbstractString)::Bool
+    t = lock(COLLAB_TERMINALS_LOCK) do
+        existing = get(COLLAB_TERMINALS, String(tid), nothing)
+        existing !== nothing && delete!(COLLAB_TERMINALS, String(tid))
+        existing
+    end
+    t === nothing && return false
+    # Drop any still-attached mirror sockets, then tear down the pty. pty_close! EOFs the output
+    # channel, which ends the pump task; the pump's own cleanup (idempotent pty_close! + paste-dir
+    # removal) then runs. Closing the sockets here is best-effort — the client already unmounted.
+    lock(t.lock) do
+        for client in collect(t.clients)
+            try close(client) catch end
+        end
+        empty!(t.clients)
+    end
+    try pty_close!(t.pty) catch end
+    true
+end
+
+"""
+End every integrated-terminal shell. Called from the server's `on_shutdown` — the shells are
+session leaders (POSIX_SPAWN_SETSID), so they get no SIGHUP from the dying server process and
+would otherwise reparent to init and keep running after a stop/restart.
+"""
+function close_all_terminals!()
+    tids = lock(COLLAB_TERMINALS_LOCK) do
+        collect(keys(COLLAB_TERMINALS))
+    end
+    for tid in tids
+        try close_terminal!(tid) catch end
+    end
+    nothing
 end
 
 function handle_terminal_websocket(ws, session::ServerSession, query::Dict{String,String})

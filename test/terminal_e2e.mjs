@@ -83,5 +83,28 @@ const closed = await until(() => b.ws.readyState === WebSocket.CLOSED, 8000)
 check(closed, "socket closed after the shell exited")
 check(/shell exited/.test(b.output()), "client was told the shell exited")
 
+console.log("== 6: explicit tab-close reaps the server shell (no orphan); detach keeps it ==")
+// A fresh tid: connect, then just close the socket (a DETACH — hide/dock/reload). The shell must
+// survive: reconnecting replays scrollback.
+const d1 = await connect("tid=e2e-close&rows=24&cols=80")
+await until(() => d1.texts.some((t) => JSON.parse(t).replayed === true))
+d1.ws.send("0:echo detach_marker_$((1+1))\r")
+check(await until(() => /detach_marker_2/.test(d1.output())), "shell echoed before detach")
+d1.ws.close()
+await new Promise((r) => setTimeout(r, 300))
+const d2 = await connect("tid=e2e-close&rows=24&cols=80")
+check(await until(() => /detach_marker_2/.test(d2.output())), "detach preserved the shell (scrollback replays)")
+// Now an explicit close via the API must reap it: a subsequent connect gets a FRESH shell (no marker).
+const closeResp = await fetch(`http://127.0.0.1:${PORT}/api/v1/terminal/close?tid=e2e-close&secret=${SECRET}`, {
+    method: "POST",
+    headers: { Origin: `http://127.0.0.1:${PORT}` },
+})
+check(closeResp.status === 200, `POST /api/v1/terminal/close returned 200 (got ${closeResp.status})`)
+d2.ws.close()
+await new Promise((r) => setTimeout(r, 400))
+const d3 = await connect("tid=e2e-close&rows=24&cols=80")
+await until(() => d3.texts.some((t) => JSON.parse(t).replayed === true))
+check(!/detach_marker_2/.test(d3.output()), "after tab-close the shell was reaped (fresh shell, no old scrollback)")
+
 console.log(fails.length === 0 ? "\nALL TERMINAL E2E TESTS PASSED" : `\nFAILURES (${fails.length}):\n` + fails.map((f) => "  - " + f).join("\n"))
 process.exit(fails.length === 0 ? 0 : 1)

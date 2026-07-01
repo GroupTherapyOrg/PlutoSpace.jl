@@ -185,9 +185,26 @@ end
 
 function pty_write(pty::PTY, data::Vector{UInt8})
     isempty(data) && return
-    GC.@preserve data ccall(:write, Cssize_t,
-                (Cint, Ptr{UInt8}, Csize_t),
-                pty.master_fd, pointer(data), length(data))
+    # The master is O_NONBLOCK, so a single write() can do a SHORT write (or EAGAIN when the tty
+    # buffer is full — a big paste, or the typed image path against a shell that isn't draining).
+    # A one-shot write ignoring the count would silently drop the tail. Loop until everything is
+    # written, yielding on EAGAIN so the reader keeps draining and we don't spin.
+    n = length(data)
+    off = 0
+    GC.@preserve data while off < n
+        pty.master_fd == -1 && return
+        w = ccall(:write, Cssize_t, (Cint, Ptr{UInt8}, Csize_t),
+                  pty.master_fd, pointer(data) + off, Csize_t(n - off))
+        if w > 0
+            off += w
+        elseif w < 0
+            errno = Base.Libc.errno()
+            errno == _EAGAIN || return   # real error (e.g. EIO on a gone shell): give up quietly
+            sleep(0.001)                 # buffer full: let the reader drain, then retry the tail
+        else
+            return
+        end
+    end
     nothing
 end
 
@@ -227,24 +244,34 @@ end
 # ── Close ──
 
 function pty_close!(pty::PTY)
-    pty.master_fd == -1 && return
+    # Idempotent + concurrency-safe. Two tasks can call this on the same PTY at once — the
+    # workspace-switch retire path does `@async pty_close!(stale.pty)` while that shell's own pump
+    # cleanup also calls pty_close! — and a second `ccall(:close)` on an fd number that has since
+    # been reused would shut an innocent descriptor. Claim the close by swapping master_fd to -1
+    # BEFORE any yield point (the ccalls and wait(reader_task) below all yield). The read-then-set
+    # has no yield between it, so under Julia's cooperative @async scheduling exactly one caller
+    # wins the claim; the rest return at the guard. Also zero child_pid so only the winner reaps.
+    fd = pty.master_fd
+    fd == -1 && return
+    pty.master_fd = Cint(-1)
+    pid = pty.child_pid
+    pty.child_pid = Cint(0)
     pty.alive = false
-    ccall(:close, Cint, (Cint,), pty.master_fd)
+    ccall(:close, Cint, (Cint,), fd)
     try close(pty.output) catch end
     if !istaskdone(pty.reader_task)
         try wait(pty.reader_task) catch end
     end
-    if pty.child_pid > 0
+    if pid > 0
         # Reap first with WNOHANG: if the child already exited (the reader saw EOF) it is a
         # zombie — collect it WITHOUT signaling, because its pid may otherwise be reused and a
         # blind kill() would hit an innocent process. Only a still-running child gets HUP'd.
         status = Ref{Cint}(0)
-        r = ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint), pty.child_pid, status, Cint(1))
+        r = ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint), pid, status, Cint(1))
         if r == 0   # still running
-            ccall(:kill, Cint, (Cint, Cint), pty.child_pid, Cint(1))
-            ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint), pty.child_pid, status, Cint(0))
+            ccall(:kill, Cint, (Cint, Cint), pid, Cint(1))
+            ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint), pid, status, Cint(0))
         end
     end
-    pty.master_fd = Cint(-1)
     nothing
 end

@@ -508,6 +508,15 @@ const TerminalView = ({ tid, cwd, visible }) => {
     const started = useRef(false)
     const fit_ref = useRef(null)
     const refit_timer = useRef(null)
+    // Held so the unmount cleanup can tear them all down. Without this, unmounting (closing the
+    // tab, switching dock — which remounts under a different parent — or closing the panel) would
+    // leak the WebSocket, the xterm instance, and the ResizeObserver: the socket's onmessage
+    // closure pins the terminal so nothing is ever GC'd, and a stale socket keeps receiving. The
+    // server shell itself is intentionally NOT killed here (that only happens on an explicit tab
+    // close, via close_terminal) so reload / dock-switch still reattach.
+    const socket_ref = useRef(/** @type {WebSocket?} */ (null))
+    const term_ref = useRef(/** @type {any} */ (null))
+    const ro_ref = useRef(/** @type {ResizeObserver?} */ (null))
 
     // Fit ONLY when the host is genuinely on-screen at a real size, and debounced so a panel that
     // is animating open settles before we measure. Fitting a hidden tab (display:none → 0px) makes
@@ -561,6 +570,16 @@ const TerminalView = ({ tid, cwd, visible }) => {
             const fit = new FitAddon()
             term.loadAddon(fit)
             fit_ref.current = fit
+            term_ref.current = term
+            // If we were unmounted while the dynamic imports were in flight, don't attach to a
+            // detached node or open a socket that would never be cleaned up.
+            if (node_ref.current == null) {
+                try {
+                    term.dispose()
+                } catch {}
+                term_ref.current = null
+                return
+            }
             term.open(node_ref.current)
 
             // Assigned when the websocket opens (below); the paste handler needs it, so it lives out here.
@@ -635,6 +654,7 @@ const TerminalView = ({ tid, cwd, visible }) => {
             const cwd_param = cwd ? `&cwd=${encodeURIComponent(cwd)}` : ""
             const size_param = `&rows=${term.rows}&cols=${term.cols}`
             socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}${size_param}`)
+            socket_ref.current = socket
             socket.binaryType = "arraybuffer"
             // Measure the panel and tell the pty (the server ignores a no-change resize). Called once
             // the attach replay has fully rendered — resizing earlier would make the pty repaint into
@@ -676,8 +696,42 @@ const TerminalView = ({ tid, cwd, visible }) => {
             term.onResize(({ rows, cols }) => socket.readyState === WebSocket.OPEN && socket.send(`1:${rows},${cols}`))
             const ro = new ResizeObserver(() => refit())
             ro.observe(node_ref.current)
+            ro_ref.current = ro
         })()
     }, [visible, refit])
+
+    // Tear everything down on unmount — closing the tab, switching dock (which remounts under a
+    // different parent), or closing the panel. Runs exactly once (empty deps), so a plain tab
+    // switch (visible→false) does NOT dispose anything; only a real unmount does. Detaching the
+    // socket leaves the server shell running for reattach; an explicit tab close reaps it
+    // separately (close_terminal → POST /api/v1/terminal/close).
+    useEffect(() => {
+        return () => {
+            clearTimeout(refit_timer.current)
+            try {
+                ro_ref.current?.disconnect()
+            } catch {}
+            ro_ref.current = null
+            const sock = socket_ref.current
+            if (sock != null) {
+                // Silence the handlers first: onclose would otherwise write "[disconnected]" into a
+                // terminal we're about to dispose, and onmessage could fire mid-teardown.
+                sock.onclose = null
+                sock.onmessage = null
+                sock.onopen = null
+                sock.onerror = null
+                try {
+                    sock.close()
+                } catch {}
+            }
+            socket_ref.current = null
+            try {
+                term_ref.current?.dispose()
+            } catch {}
+            term_ref.current = null
+            fit_ref.current = null
+        }
+    }, [])
 
     return html`<div class="terminal-host" ref=${node_ref}></div>`
 }
@@ -988,6 +1042,9 @@ const Land = () => {
     }, [])
 
     const close_terminal = useCallback((tid) => {
+        // Reap the server-side shell (this is a real close, not a detach) — best-effort; the tab is
+        // going away regardless. Persistent shells only survive detaches (hide / dock / reload).
+        fetch(`./api/v1/terminal/close?tid=${encodeURIComponent(tid)}`, { method: "POST" }).catch(() => {})
         set_terminals((ts) => {
             const remaining = ts.filter((t) => t.tid !== tid)
             set_active_terminal((a) => (a === tid ? (remaining.length ? remaining[remaining.length - 1].tid : null) : a))

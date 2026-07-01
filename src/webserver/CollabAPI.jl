@@ -672,4 +672,16 @@ function register_collab_api!(router, session::ServerSession)
         end
     end
     HTTP.register!(router, "POST", "/api/v1/notebook/restart", serve_api_restart)
+
+    # End an integrated-terminal shell for good (the tab's × button). Detaching a socket — hiding
+    # the panel, switching dock, reloading — deliberately leaves the shell running for reattach, so
+    # only an explicit tab close reaps it. Idempotent; a 200 either way (already-gone is success).
+    function serve_api_terminal_close(request::HTTP.Request)
+        query = HTTP.queryparams(HTTP.URI(request.target))
+        tid = get(query, "tid", "")
+        isempty(tid) && return _api_error(400, "pass ?tid=<terminal-id>", false)
+        closed = close_terminal!(tid)
+        HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], _json(Pair["ok" => true, "closed" => closed]) * "\n")
+    end
+    HTTP.register!(router, "POST", "/api/v1/terminal/close", serve_api_terminal_close)
 end

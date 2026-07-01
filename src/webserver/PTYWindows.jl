@@ -307,27 +307,38 @@ end
 # ── Close ──
 
 function pty_close!(pty::PTY)
-    pty.hpc == C_NULL && return
-    pty.alive = false
-    # Closing the pseudo-console terminates the child and EOFs the output pipe, which stops
-    # the reader's PeekNamedPipe loop. Close the channel first so a blocked put! unwinds too.
-    ccall((:ClosePseudoConsole, "kernel32"), Cvoid, (Ptr{Cvoid},), pty.hpc)
-    try close(pty.output) catch end
-    if !istaskdone(pty.reader_task)
-        try wait(pty.reader_task) catch end
-    end
-    _close_handle(pty.input_write)
-    _close_handle(pty.output_read)
-    if pty.hprocess != C_NULL
-        ccall((:TerminateProcess, "kernel32"), Cint, (Ptr{Cvoid}, UInt32), pty.hprocess, UInt32(1))
-        ccall((:WaitForSingleObject, "kernel32"), UInt32, (Ptr{Cvoid}, UInt32), pty.hprocess, UInt32(2000))
-        _close_handle(pty.hprocess)
-    end
-    _close_handle(pty.hthread)
+    # Idempotent + concurrency-safe (mirrors PTY.jl): two tasks can call this on the same PTY at
+    # once (the workspace-switch retire path's @async pty_close! and the shell's own pump cleanup),
+    # and double-closing a HANDLE that Windows may have recycled would corrupt an unrelated object.
+    # Claim the close by nulling every handle field into locals BEFORE any yield (the ccalls and
+    # wait(reader_task) below yield); the read-then-null has no yield between, so under cooperative
+    # @async scheduling exactly one caller wins and the rest return at the guard.
+    hpc = pty.hpc
+    hpc == C_NULL && return
+    input_write = pty.input_write
+    output_read = pty.output_read
+    hprocess = pty.hprocess
+    hthread = pty.hthread
     pty.hpc = C_NULL
     pty.input_write = C_NULL
     pty.output_read = C_NULL
     pty.hprocess = C_NULL
     pty.hthread = C_NULL
+    pty.alive = false
+    # Closing the pseudo-console terminates the child and EOFs the output pipe, which stops
+    # the reader's PeekNamedPipe loop. Close the channel first so a blocked put! unwinds too.
+    ccall((:ClosePseudoConsole, "kernel32"), Cvoid, (Ptr{Cvoid},), hpc)
+    try close(pty.output) catch end
+    if !istaskdone(pty.reader_task)
+        try wait(pty.reader_task) catch end
+    end
+    _close_handle(input_write)
+    _close_handle(output_read)
+    if hprocess != C_NULL
+        ccall((:TerminateProcess, "kernel32"), Cint, (Ptr{Cvoid}, UInt32), hprocess, UInt32(1))
+        ccall((:WaitForSingleObject, "kernel32"), UInt32, (Ptr{Cvoid}, UInt32), hprocess, UInt32(2000))
+        _close_handle(hprocess)
+    end
+    _close_handle(hthread)
     nothing
 end
