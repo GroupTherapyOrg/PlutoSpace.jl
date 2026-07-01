@@ -31,6 +31,7 @@ const TERMINAL_PASTE_KEEP = 10
 mutable struct CollabTerminal
     pty::PTY
     scrollback::Vector{UInt8}
+    scrollback_trimmed::Bool   # the ring has rolled over — its start may be mid-escape-sequence
     clients::Set{Any}
     lock::ReentrantLock
     pump::Task
@@ -215,13 +216,16 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
         # shell and starts a new one with the same tid, and we must not let the retired shell's teardown
         # delete the new shell's pasted files.
         paste_dir = joinpath(tempdir(), "plutospace-paste-$(_safe_tid(tid))-$(time_ns())")
-        t = CollabTerminal(_spawn_workspace_shell(session, target; rows=rows, cols=cols), UInt8[], Set{Any}(), ReentrantLock(), @async(nothing), target, paste_dir)
+        t = CollabTerminal(_spawn_workspace_shell(session, target; rows=rows, cols=cols), UInt8[], false, Set{Any}(), ReentrantLock(), @async(nothing), target, paste_dir)
         t.pump = @asynclog begin
             for data in t.pty.output
                 lock(t.lock) do
                     append!(t.scrollback, data)
                     extra = length(t.scrollback) - TERMINAL_SCROLLBACK_LIMIT
-                    extra > 0 && deleteat!(t.scrollback, 1:extra)
+                    if extra > 0
+                        deleteat!(t.scrollback, 1:extra)
+                        t.scrollback_trimmed = true
+                    end
                     for client in collect(t.clients)
                         try
                             HTTP.WebSockets.send(client, data)
@@ -243,6 +247,12 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
             end
             lock(COLLAB_TERMINALS_LOCK) do
                 get(COLLAB_TERMINALS, tid, nothing) === t && delete!(COLLAB_TERMINALS, tid)
+            end
+            # Release the pty's OS resources (fd/handles, reap the child) — the shell exiting on
+            # its own does NOT go through the explicit pty_close! path anywhere else.
+            try
+                pty_close!(t.pty)
+            catch
             end
             try
                 rm(t.paste_dir; recursive=true, force=true)
@@ -274,10 +284,29 @@ function handle_terminal_websocket(ws, session::ServerSession, query::Dict{Strin
         return
     end
 
-    # attach: replay recent scrollback so the terminal isn't blank after a refresh, then subscribe
+    # Attach: replay recent scrollback so the terminal isn't blank after a refresh, then subscribe.
+    #
+    # The replay is raw recorded bytes, so it only renders correctly in the EXACT grid it was
+    # recorded for — full-screen TUIs (Claude Code, vim) position with absolute cursor moves, and
+    # replaying them into a different-sized xterm interleaves/mangles frames ("inception"). So the
+    # protocol brackets the replay with two TEXT frames (all normal output is binary, so text is
+    # unambiguous): first the pty's current geometry — the client resizes its grid to match BEFORE
+    # writing the replay — then a completion marker, after which the client re-fits to its panel
+    # and resizes the pty, making the live app repaint cleanly at the new size (tmux semantics).
     lock(t.lock) do
-        isempty(t.scrollback) || try
-            HTTP.WebSockets.send(ws, copy(t.scrollback))
+        try
+            HTTP.WebSockets.send(ws, """{"rows":$(t.pty.rows),"cols":$(t.pty.cols)}""")
+            if !isempty(t.scrollback)
+                payload = copy(t.scrollback)
+                if t.scrollback_trimmed
+                    # the ring rolled over: its first bytes may be the tail of an escape sequence,
+                    # which would desync the client's VT parser — start at the next line boundary
+                    i = findfirst(==(UInt8('\n')), payload)
+                    i !== nothing && i < length(payload) && (payload = payload[i+1:end])
+                end
+                HTTP.WebSockets.send(ws, payload)
+            end
+            HTTP.WebSockets.send(ws, """{"replayed":true}""")
         catch end
         push!(t.clients, ws)
     end

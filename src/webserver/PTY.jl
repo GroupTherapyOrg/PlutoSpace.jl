@@ -68,6 +68,10 @@ function _start_pty_reader(pty::PTY)
             e isa InvalidStateException || e isa Base.IOError || (pty.alive && @debug "PTY reader error" exception=(e, catch_backtrace()))
         end
         pty.alive = false
+        # Close the output channel so consumers iterating `for data in pty.output` terminate —
+        # without this, a naturally-exiting shell leaves its pump task blocked forever (clients
+        # never told, fd and child never cleaned up).
+        try close(pty.output) catch end
     end
 end
 
@@ -95,10 +99,17 @@ function pty_spawn(cmd::Vector{String}; rows::Int=24, cols::Int=80,
     ret == -1 && error("openpty failed: $(Base.Libc.strerror(Base.Libc.errno()))")
 
     slave_path = GC.@preserve slave_name unsafe_string(pointer(slave_name))
-    ccall(:close, Cint, (Cint,), slave_fd[])
     _set_nonblocking(master_fd[])
 
-    # posix_spawn file actions: close master, open slave → fd 0, dup2 to 1 and 2
+    # posix_spawn file actions: close master, open slave → fd 0 (this acquires the controlling
+    # terminal, since the child is a fresh session leader via POSIX_SPAWN_SETSID), dup2 to 1/2,
+    # then drop the fork-inherited extra slave fd.
+    #
+    # The parent's slave fd is deliberately kept open across the spawn: on macOS, once ALL slave
+    # fds close the pty is revoked and the NEXT open re-initializes it — wiping the winsize that
+    # openpty set, so every shell would be born 0×0 (apps that query size at startup then render
+    # for a garbage geometry). The child's fork-inherited copy keeps the count nonzero while its
+    # open-by-path runs; the parent closes its copy only after posix_spawnp returns.
     file_actions = zeros(UInt8, _SPAWN_FA_SIZE)
     GC.@preserve file_actions begin
         ccall(:posix_spawn_file_actions_init, Cint, (Ptr{UInt8},), pointer(file_actions))
@@ -111,6 +122,8 @@ function pty_spawn(cmd::Vector{String}; rows::Int=24, cols::Int=80,
               (Ptr{UInt8}, Cint, Cint), pointer(file_actions), Cint(0), Cint(1))
         ccall(:posix_spawn_file_actions_adddup2, Cint,
               (Ptr{UInt8}, Cint, Cint), pointer(file_actions), Cint(0), Cint(2))
+        slave_fd[] > 2 && ccall(:posix_spawn_file_actions_addclose, Cint,
+              (Ptr{UInt8}, Cint), pointer(file_actions), slave_fd[])
     end
 
     spawn_attr = zeros(UInt8, _SPAWN_ATTR_SIZE)
@@ -148,10 +161,19 @@ function pty_spawn(cmd::Vector{String}; rows::Int=24, cols::Int=80,
     GC.@preserve spawn_attr ccall(:posix_spawnattr_destroy, Cint,
                                    (Ptr{UInt8},), pointer(spawn_attr))
 
+    # Now the child exists (fork happened) and holds its own slave reference — safe to drop ours.
+    ccall(:close, Cint, (Cint,), slave_fd[])
+
     if ret != 0
         ccall(:close, Cint, (Cint,), master_fd[])
         error("posix_spawnp failed: $(Base.Libc.strerror(ret))")
     end
+
+    # Belt and braces: re-assert the geometry on the master. On macOS the winsize state is
+    # fragile around slave open/close cycles (see above); this is a no-op when already right.
+    winsz = UInt16[rows, cols, 0, 0]
+    GC.@preserve winsz ccall(:ioctl, Cint, (Cint, Culong, Ptr{Cvoid}...),
+                master_fd[], _TIOCSWINSZ, pointer(winsz))
 
     output = Channel{Vector{UInt8}}(64)
     pty = PTY(master_fd[], pid[], rows, cols, true, output, (@async nothing), nothing)
@@ -213,10 +235,15 @@ function pty_close!(pty::PTY)
         try wait(pty.reader_task) catch end
     end
     if pty.child_pid > 0
-        ccall(:kill, Cint, (Cint, Cint), pty.child_pid, Cint(1))
+        # Reap first with WNOHANG: if the child already exited (the reader saw EOF) it is a
+        # zombie — collect it WITHOUT signaling, because its pid may otherwise be reused and a
+        # blind kill() would hit an innocent process. Only a still-running child gets HUP'd.
         status = Ref{Cint}(0)
-        ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint),
-              pty.child_pid, status, Cint(0))
+        r = ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint), pty.child_pid, status, Cint(1))
+        if r == 0   # still running
+            ccall(:kill, Cint, (Cint, Cint), pty.child_pid, Cint(1))
+            ccall(:waitpid, Cint, (Cint, Ptr{Cint}, Cint), pty.child_pid, status, Cint(0))
+        end
     end
     pty.master_fd = Cint(-1)
     nothing

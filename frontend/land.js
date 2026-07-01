@@ -636,11 +636,41 @@ const TerminalView = ({ tid, cwd, visible }) => {
             const size_param = `&rows=${term.rows}&cols=${term.cols}`
             socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}${size_param}`)
             socket.binaryType = "arraybuffer"
-            socket.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data))
-            socket.onopen = () => {
-                refit()
-                socket.send(`1:${term.rows},${term.cols}`)
+            // Measure the panel and tell the pty (the server ignores a no-change resize). Called once
+            // the attach replay has fully rendered — resizing earlier would make the pty repaint into
+            // a grid the replay bytes weren't recorded for.
+            const sync_size_to_panel = () => {
+                const node = node_ref.current
+                if (node != null && node.offsetParent !== null && node.clientWidth >= 24 && node.clientHeight >= 24) {
+                    try {
+                        fit.fit()
+                    } catch {}
+                }
+                if (socket?.readyState === WebSocket.OPEN) socket.send(`1:${term.rows},${term.cols}`)
             }
+            socket.onmessage = (e) => {
+                if (typeof e.data !== "string") {
+                    term.write(new Uint8Array(e.data))
+                    return
+                }
+                // Text frames are the attach protocol (all shell output is binary). First frame: the
+                // pty's current geometry — adopt it BEFORE the replay renders, since the replayed bytes
+                // (absolute cursor positioning included) only make sense in that exact grid. Second
+                // frame: replay complete — now re-fit to the panel; the resulting pty resize makes the
+                // live app repaint itself cleanly at the real size.
+                let meta = null
+                try {
+                    meta = JSON.parse(e.data)
+                } catch {}
+                if (meta == null) return
+                if (Number.isFinite(meta.rows) && Number.isFinite(meta.cols) && (term.rows !== meta.rows || term.cols !== meta.cols)) {
+                    try {
+                        term.resize(meta.cols, meta.rows)
+                    } catch {}
+                }
+                if (meta.replayed) sync_size_to_panel()
+            }
+            socket.onopen = () => refit()
             socket.onclose = () => term.write("\r\n\x1b[2m[disconnected — the shell is still running; reload to reattach]\x1b[0m\r\n")
             term.onData((d) => socket.readyState === WebSocket.OPEN && socket.send("0:" + d))
             term.onResize(({ rows, cols }) => socket.readyState === WebSocket.OPEN && socket.send(`1:${rows},${cols}`))

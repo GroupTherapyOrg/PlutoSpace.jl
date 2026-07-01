@@ -154,6 +154,10 @@ function _start_pty_reader(pty::PTY)
                 (pty.alive && @debug "PTY reader error" exception=(e, catch_backtrace()))
         end
         pty.alive = false
+        # Close the output channel so consumers iterating `for data in pty.output` terminate —
+        # without this, a naturally-exiting shell leaves its pump task blocked forever (clients
+        # never told, handles never cleaned up). Mirrors PTY.jl.
+        try close(pty.output) catch end
     end
 end
 
