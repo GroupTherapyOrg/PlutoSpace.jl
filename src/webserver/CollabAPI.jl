@@ -395,6 +395,22 @@ function register_collab_api!(router, session::ServerSession)
         notebook = _api_notebook_from_query(session, query)
         notebook === nothing && return _api_error(404, "notebook not found — is it open in this server? (pass ?path=/abs/path.jl or ?id=<uuid>)", fmt_text)
 
+        # Sync from disk BEFORE deciding what is stale and running. The documented agent workflow is
+        # "edit the .jl, then `pluto-collab run --stale`" — but the background file watcher only syncs
+        # after a ~0.4s debounce (SessionActions.jl), so an edit-then-immediately-run races it: we
+        # would run the OLD in-memory cells and, because the run also saves, write them straight back
+        # over the just-written file — silently losing the edit and returning success. Loading here
+        # picks up the current file and marks the right cells stale (lazy) deterministically,
+        # regardless of watcher timing. It is a no-op when already in sync, and idempotent with a
+        # concurrent watcher load (which then sees no diff). Skipped when the file was never saved.
+        if !isempty(notebook.path) && isfile(notebook.path)
+            try
+                update_from_file(session, notebook; run_async=false)
+            catch e
+                @warn "notebook/run: syncing the notebook from its file before running failed" exception = (e, catch_backtrace())
+            end
+        end
+
         cells = if get(query, "stale", "") == "true"
             filter(c -> c.stale, notebook.cells)
         elseif haskey(query, "cells")
