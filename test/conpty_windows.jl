@@ -62,7 +62,10 @@ try
     out2 = drain(pty; timeout = 10, want = "write_roundtrip_123")
     println("  after write: ", length(out2), " bytes: ", repr(String(copy(out2))))
     check(occursin("write_roundtrip_123", String(out2)), "powershell echoed our written command")
-    W.pty_resize!(pty, 40, 100); check(true, "pty_resize! did not throw")
+    W.pty_resize!(pty, 40, 100)
+    check(pty.rows == 40 && pty.cols == 100, "pty_resize! resized and recorded the new size")
+    W.pty_resize!(pty, 40, 100)  # same size again → must hit the no-op early return (no repaint)
+    check(pty.rows == 40 && pty.cols == 100, "same-size pty_resize! is a no-op and did not throw")
     W.pty_close!(pty);            check(true, "pty_close! did not throw")
 catch e
     println("  EXCEPTION: ", sprint(showerror, e))
@@ -91,6 +94,23 @@ try
 catch e
     println("  EXCEPTION: ", sprint(showerror, e))
     push!(fails, "banner path threw")
+end
+
+println("\n== Test 4: exact cmd.exe fallback path (/K chcp 65001 through _win_cmdline quoting) ==")
+try
+    # Mirrors CollabTerminal.jl's cmd branch. The argv element "chcp 65001 >nul" gets quoted by
+    # _win_cmdline into `cmd.exe /K "chcp 65001 >nul"` — this asserts cmd actually executes it
+    # (quoting is where this breaks) by asking cmd which codepage it ended up on.
+    pty = W.pty_spawn(["cmd.exe", "/K", "chcp 65001 >nul"]; dir = "C:\\")
+    println("  spawned cmd child_pid=", pty.child_pid)
+    W.pty_write(pty, "chcp\r\n")
+    out = drain(pty; timeout = 10, want = "65001")
+    println("  ", length(out), " bytes: ", repr(String(copy(out))))
+    check(occursin("65001", String(out)), "cmd fallback switched the console to UTF-8 (chcp reports 65001)")
+    W.pty_close!(pty)
+catch e
+    println("  EXCEPTION: ", sprint(showerror, e))
+    push!(fails, "cmd /K chcp path threw")
 end
 
 println("\n", isempty(fails) ? "ALL CONPTY TESTS PASSED ✅" : "FAILURES ($(length(fails))) ❌:")
