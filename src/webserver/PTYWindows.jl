@@ -26,9 +26,11 @@ const _EXTENDED_STARTUPINFO_PRESENT       = UInt32(0x00080000)
 const _CREATE_UNICODE_ENVIRONMENT         = UInt32(0x00000400)
 const _PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE = Csize_t(0x00020016)
 const _WAIT_OBJECT_0                       = UInt32(0x00000000)
+const _STARTF_USESTDHANDLES                = UInt32(0x00000100)
 const _INVALID_HANDLE                      = Ptr{Cvoid}(typemax(UInt))
 # STARTUPINFOEXW is STARTUPINFOW (104 bytes on x64) + lpAttributeList pointer → 112 bytes.
 const _STARTUPINFOEXW_SIZE = 112
+const _STARTUPINFOW_DWFLAGS_OFFSET = 60    # dwFlags within STARTUPINFOW (x64)
 const _STARTUPINFOEXW_ATTRLIST_OFFSET = 104
 const _PROCESS_INFORMATION_SIZE = 24  # HANDLE hProcess; HANDLE hThread; DWORD pid; DWORD tid
 
@@ -221,6 +223,13 @@ function pty_spawn(cmd::Vector{String}; rows::Int=24, cols::Int=80,
         unsafe_store!(Ptr{UInt32}(pointer(si)), UInt32(_STARTUPINFOEXW_SIZE))
         unsafe_store!(Ptr{Ptr{Cvoid}}(pointer(si) + _STARTUPINFOEXW_ATTRLIST_OFFSET),
                       Ptr{Cvoid}(pointer(attr)))
+        # Critical for a redirected parent: PlutoSpace's own stdout/stderr are usually a
+        # pipe/log, not a real console. Without this the child inherits THOSE handles instead
+        # of attaching to the pseudo-console, so its output never reaches us — a blank terminal.
+        # STARTF_USESTDHANDLES with the std handles left NULL (they're zero-filled here) blocks
+        # that inheritance, so the pseudo-console becomes the child's console. Verified on CI:
+        # without it the child renders to the parent console; with it, output flows to our pipe.
+        unsafe_store!(Ptr{UInt32}(pointer(si) + _STARTUPINFOW_DWFLAGS_OFFSET), _STARTF_USESTDHANDLES)
 
         dirp = isempty(cwstr_dir) ? C_NULL : pointer(cwstr_dir)
         envp = env === nothing   ? C_NULL : Ptr{Cvoid}(pointer(envblock))
