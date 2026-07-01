@@ -26,6 +26,7 @@ const _O_NONBLOCK = @static (Sys.isapple() || Sys.isbsd()) ? Cint(0x0004) : Cint
 const _F_SETFL = Cint(4)
 const _F_GETFL = Cint(3)
 const _EAGAIN = @static Sys.isapple() ? Cint(35) : Cint(11)
+const _EINTR = Cint(4)  # same on Linux and macOS
 const _POSIX_SPAWN_SETSID = @static Sys.isapple() ? Cshort(0x0400) : Cshort(0x0080)
 const _O_RDWR = Cint(2)
 const _SPAWN_FA_SIZE = @static Sys.isapple() ? 8 : 80
@@ -55,7 +56,8 @@ function _start_pty_reader(pty::PTY)
                         pty.on_data !== nothing && pty.on_data()
                     elseif n < 0
                         errno = Base.Libc.errno()
-                        errno == _EAGAIN && break
+                        errno == _EAGAIN && break     # nothing more buffered right now
+                        errno == _EINTR && continue   # a signal interrupted the read — just retry
                         pty.alive = false
                         break
                     else
