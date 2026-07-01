@@ -23,5 +23,8 @@ jobs:
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1.12'
+      - name: ConPTY low-level diagnostic
+        run: julia --startup-file=no --color=yes test/conpty_diag.jl
       - name: ConPTY smoke test
+        if: always()
         run: julia --startup-file=no --color=yes test/conpty_windows.jl
