@@ -117,29 +117,65 @@ function _resolve_terminal_cwd(session::ServerSession, requested::Union{Nothing,
     homedir()
 end
 
-function _spawn_workspace_shell(session::ServerSession, dir::String)
-    shell = get(ENV, "SHELL", Sys.isapple() ? "/bin/zsh" : "/bin/bash")
+"Pick the interactive shell exe for a Windows terminal, VS Code-style: PowerShell 7, then
+Windows PowerShell, then cmd. Overridable with PLUTOSPACE_SHELL (name on PATH or full path)."
+function _windows_shell_exe()::String
+    override = get(ENV, "PLUTOSPACE_SHELL", "")
+    if !isempty(override)
+        return isfile(override) ? override : something(Sys.which(override), override)
+    end
+    for exe in ("pwsh", "powershell", "cmd")
+        p = Sys.which(exe)
+        p === nothing || return p
+    end
+    "cmd.exe"
+end
 
+function _spawn_workspace_shell(session::ServerSession, dir::String)
     # Make this terminal "just work" for any CLI coding agent: the live server's port + secret
     # so tools target THIS session without discovery, and the apps bin (where `pluto-collab`
     # was installed) prepended to PATH defensively.
     port = session.options.server.port
-    exports = join([
-        "export PLUTOSPACE=1",
-        "export PLUTOSPACE_PORT=$(_shquote(port === nothing ? "" : string(port)))",
-        "export PLUTOSPACE_SECRET=$(_shquote(session.secret))",
-        "export PLUTOSPACE_WORKSPACE=$(_shquote(dir))",
-        "export PATH=$(_shquote(apps_bin_dir())):\"\$PATH\"",
-    ], "; ")
     banner = string(
         "\e[1m🟢🟣🔴 PlutoSpace live session\e[0m — notebooks in this folder are collaborative.\r\n",
         "Edit a notebook .jl and its cells go stale in the browser; run exactly what changed:\r\n",
         "  \e[36mpluto-collab status <nb.jl>\e[0m   ·   \e[36mpluto-collab run <nb.jl> --stale\e[0m\r\n\r\n",
     )
 
-    # a login shell, already cd'ed into the workspace, with the agent surface exported + a banner
-    cmd = "cd $(_shquote(dir)) && $(exports); printf %s $(_shquote(banner)); exec $(_shquote(shell)) -l"
-    pty_spawn(["/bin/sh", "-c", cmd])
+    @static if Sys.iswindows()
+        # The agent surface as real environment variables (ConPTY sets them via the process
+        # environment block — no shell-syntax differences), and ConPTY sets the working dir
+        # directly (lpCurrentDirectory), so no `cd` is needed.
+        env = Dict{String,String}(
+            "PLUTOSPACE" => "1",
+            "PLUTOSPACE_PORT" => (port === nothing ? "" : string(port)),
+            "PLUTOSPACE_SECRET" => session.secret,
+            "PLUTOSPACE_WORKSPACE" => dir,
+            "PATH" => string(apps_bin_dir(), ";", get(ENV, "PATH", "")),
+        )
+        shell = _windows_shell_exe()
+        if endswith(lowercase(shell), "cmd.exe")
+            pty_spawn([shell]; dir=dir, env=env)  # cmd: no ANSI banner, just open in the workspace
+        else
+            # PowerShell: print the banner, then stay interactive (-NoExit). The banner is
+            # base64-encoded so its ANSI/emoji survive command-line quoting intact.
+            b64 = Base64.base64encode(banner)
+            setup = "\$b=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$(b64)')); [Console]::Write(\$b)"
+            pty_spawn([shell, "-NoLogo", "-NoExit", "-Command", setup]; dir=dir, env=env)
+        end
+    else
+        shell = get(ENV, "SHELL", Sys.isapple() ? "/bin/zsh" : "/bin/bash")
+        exports = join([
+            "export PLUTOSPACE=1",
+            "export PLUTOSPACE_PORT=$(_shquote(port === nothing ? "" : string(port)))",
+            "export PLUTOSPACE_SECRET=$(_shquote(session.secret))",
+            "export PLUTOSPACE_WORKSPACE=$(_shquote(dir))",
+            "export PATH=$(_shquote(apps_bin_dir())):\"\$PATH\"",
+        ], "; ")
+        # a login shell, already cd'ed into the workspace, with the agent surface exported + a banner
+        cmd = "cd $(_shquote(dir)) && $(exports); printf %s $(_shquote(banner)); exec $(_shquote(shell)) -l"
+        pty_spawn(["/bin/sh", "-c", cmd])
+    end
 end
 
 "Get the live terminal for this id, or (re)create one. The pump task forwards PTY output to every attached socket and maintains the scrollback ring."
@@ -210,7 +246,15 @@ end
 function handle_terminal_websocket(ws, session::ServerSession, query::Dict{String,String})
     tid = get(query, "tid", "default")
     cwd = get(query, "cwd", "")  # the workspace root the client is showing — the shell opens here
-    t = _get_or_create_terminal(session, tid; requested_cwd=(isempty(cwd) ? nothing : cwd))
+    t = try
+        _get_or_create_terminal(session, tid; requested_cwd=(isempty(cwd) ? nothing : cwd))
+    catch e
+        # Spawn failed (e.g. Windows older than 10 1809 has no ConPTY). Say so plainly instead
+        # of letting the socket close into the frontend's "reload to reattach" message.
+        msg = "\r\n\e[31m[could not start a shell: $(sprint(showerror, e))]\e[0m\r\n"
+        try HTTP.WebSockets.send(ws, Vector{UInt8}(codeunits(msg))) catch end
+        return
+    end
 
     # attach: replay recent scrollback so the terminal isn't blank after a refresh, then subscribe
     lock(t.lock) do

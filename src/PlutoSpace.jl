@@ -88,7 +88,11 @@ include("./webserver/MsgPack.jl")
 include("./webserver/SessionActions.jl")
 include("./webserver/Static.jl")
 include("./webserver/Authentication.jl")
-include("./webserver/PTY.jl")
+@static if Sys.iswindows()
+    include("./webserver/PTYWindows.jl")  # ConPTY-backed PTY (Windows 10 1809+)
+else
+    include("./webserver/PTY.jl")         # openpty/posix_spawn-backed PTY (macOS, Linux, BSD)
+end
 include("./AgentSurface.jl")
 include("./webserver/CollabTerminal.jl")
 include("./webserver/CollabAPI.jl")
