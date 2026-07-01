@@ -1,0 +1,27 @@
+name: Windows terminal (ConPTY)
+
+# Exercises the Windows ConPTY PTY layer (src/webserver/PTYWindows.jl) on a real Windows
+# runner — the integrated terminal's backend can only be tested here. Standalone, so it
+# does not instantiate the whole package: fast to iterate on.
+
+on:
+  push:
+    branches: [ main, windows-terminal-ci ]
+    paths:
+      - 'src/webserver/PTYWindows.jl'
+      - 'src/webserver/CollabTerminal.jl'
+      - 'test/conpty_windows.jl'
+      - '.github/workflows/WindowsTerminal.yml'
+  workflow_dispatch:
+
+jobs:
+  conpty:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1.12'
+      - name: ConPTY smoke test
+        run: julia --startup-file=no --color=yes test/conpty_windows.jl
