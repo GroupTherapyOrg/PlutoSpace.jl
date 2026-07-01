@@ -174,6 +174,9 @@ pty_write(pty::PTY, s::String) = pty_write(pty, Vector{UInt8}(codeunits(s)))
 # ── Resize ──
 
 function pty_resize!(pty::PTY, rows::Int, cols::Int)
+    # No-op on a same-size resize (mirrors PTYWindows.jl): skip the gratuitous SIGWINCH when the
+    # client re-sends an unchanged geometry on attach.
+    (rows == pty.rows && cols == pty.cols) && return
     pty.rows = rows
     pty.cols = cols
     ws = UInt16[rows, cols, 0, 0]

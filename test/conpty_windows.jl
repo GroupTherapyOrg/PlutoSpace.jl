@@ -69,16 +69,24 @@ catch e
     push!(fails, "powershell interactive test threw")
 end
 
-println("\n== Test 3: exact banner path _spawn_workspace_shell builds (base64 -Command) ==")
+println("\n== Test 3: exact banner path _spawn_workspace_shell builds (UTF-8 console + base64 -Command) ==")
 try
-    banner = "\e[1mBANNER_MARKER\e[0m\r\n"
+    # Mirrors CollabTerminal.jl's setup string: switch the console to UTF-8 BEFORE writing, then
+    # write the base64'd banner. The emoji is the regression check — on Windows PowerShell 5.1
+    # without the encoding switch, the legacy OEM codepage turns it into "??".
+    banner = "\e[1m🟢 BANNER_MARKER\e[0m\r\n"
     b64 = Base64.base64encode(banner)
-    setup = "\$b=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$(b64)')); [Console]::Write(\$b)"
+    setup = string(
+        "\$e=[Text.UTF8Encoding]::new(\$false); ",
+        "try{[Console]::OutputEncoding=\$e; [Console]::InputEncoding=\$e}catch{}; \$OutputEncoding=\$e; ",
+        "\$b=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$(b64)')); [Console]::Write(\$b)",
+    )
     exe = ps_exe()
     pty = W.pty_spawn([exe, "-NoLogo", "-NoExit", "-Command", setup]; dir = "C:\\")
     out = drain(pty; timeout = 15, want = "BANNER_MARKER")
     println("  ", length(out), " bytes: ", repr(String(copy(out))))
     check(occursin("BANNER_MARKER", String(out)), "base64 -Command banner rendered")
+    check(occursin("🟢", String(out)), "banner emoji survived (UTF-8 console, no ?? mojibake)")
     W.pty_close!(pty)
 catch e
     println("  EXCEPTION: ", sprint(showerror, e))

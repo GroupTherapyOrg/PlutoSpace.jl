@@ -536,9 +536,10 @@ const TerminalView = ({ tid, cwd, visible }) => {
         if (node_ref.current == null) return
         started.current = true
         ;(async () => {
-            const [{ Terminal }, { FitAddon }] = await Promise.all([
+            const [{ Terminal }, { FitAddon }, config] = await Promise.all([
                 import("https://esm.sh/@xterm/xterm@5.5.0?target=es2020"),
                 import("https://esm.sh/@xterm/addon-fit@0.10.0?target=es2020"),
+                get_json("./api/v1/config").catch(() => null),
             ])
             const styles = getComputedStyle(document.documentElement)
             const term = new Terminal({
@@ -546,6 +547,11 @@ const TerminalView = ({ tid, cwd, visible }) => {
                 fontFamily: "JuliaMono, SFMono-Regular, Menlo, Consolas, monospace",
                 cursorBlink: true,
                 scrollback: 5000,
+                // The SERVER's pty backend decides this, not the browser's OS: on a Windows server the
+                // pty is ConPTY, and xterm needs its ConPTY heuristics (reliable wrapped-line detection
+                // around ConPTY's full-viewport repaints) or redraw-in-place TUIs — Claude Code, vim,
+                // anything Ink-style — leave stale duplicated frames stacked above the live one.
+                ...(config?.windows ? { windowsPty: { backend: "conpty" } } : {}),
                 theme: {
                     // the terminal interior stays dark in both themes (see --terminal-bg/fg in themes/*.css)
                     background: styles.getPropertyValue("--terminal-bg").trim() || "#1f1f1f",
@@ -612,13 +618,23 @@ const TerminalView = ({ tid, cwd, visible }) => {
             try {
                 await document.fonts?.ready
             } catch {}
+            // One immediate fit (same visibility guards as refit, but not debounced): the connect URL
+            // below carries the terminal's true geometry so a NEW shell is BORN at the right size.
+            // Spawning at the 24×80 default and resizing on attach makes ConPTY repaint the viewport,
+            // which duplicates the banner/first frame on a Windows server.
+            if (node_ref.current != null && node_ref.current.offsetParent !== null && node_ref.current.clientWidth >= 24 && node_ref.current.clientHeight >= 24) {
+                try {
+                    fit.fit()
+                } catch {}
+            }
             refit()
 
             const proto = window.location.protocol === "https:" ? "wss" : "ws"
             // Open the shell in the workspace the client is showing (local or ssh-remote), not wherever
             // the server happened to launch. The server falls back to its workspace_folder if omitted.
             const cwd_param = cwd ? `&cwd=${encodeURIComponent(cwd)}` : ""
-            socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}`)
+            const size_param = `&rows=${term.rows}&cols=${term.cols}`
+            socket = new WebSocket(`${proto}://${window.location.host}/terminal?tid=${tid}${cwd_param}${size_param}`)
             socket.binaryType = "arraybuffer"
             socket.onmessage = (e) => term.write(typeof e.data === "string" ? e.data : new Uint8Array(e.data))
             socket.onopen = () => {

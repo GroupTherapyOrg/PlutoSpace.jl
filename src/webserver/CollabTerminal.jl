@@ -131,7 +131,7 @@ function _windows_shell_exe()::String
     "cmd.exe"
 end
 
-function _spawn_workspace_shell(session::ServerSession, dir::String)
+function _spawn_workspace_shell(session::ServerSession, dir::String; rows::Int=24, cols::Int=80)
     # Make this terminal "just work" for any CLI coding agent: the live server's port + secret
     # so tools target THIS session without discovery, and the apps bin (where `pluto-collab`
     # was installed) prepended to PATH defensively.
@@ -155,13 +155,24 @@ function _spawn_workspace_shell(session::ServerSession, dir::String)
         )
         shell = _windows_shell_exe()
         if endswith(lowercase(shell), "cmd.exe")
-            pty_spawn([shell]; dir=dir, env=env)  # cmd: no ANSI banner, just open in the workspace
+            # cmd: no ANSI banner, just open in the workspace — in UTF-8 (chcp 65001) so tools
+            # that write raw UTF-8 render correctly.
+            pty_spawn([shell, "/K", "chcp 65001 >nul"]; dir=dir, env=env, rows=rows, cols=cols)
         else
             # PowerShell: print the banner, then stay interactive (-NoExit). The banner is
-            # base64-encoded so its ANSI/emoji survive command-line quoting intact.
+            # base64-encoded so its ANSI/emoji survive command-line quoting intact. The console
+            # must be switched to UTF-8 FIRST: Windows PowerShell 5.1 encodes [Console]::Write
+            # through the legacy OEM codepage, which turns the banner's emoji into "??????" and
+            # the em-dash into "-" — and any child that writes raw UTF-8 would mojibake the same
+            # way. (BOM-less UTF8Encoding, or 5.1 prepends a stray ï»¿; InputEncoding in a try
+            # because some hosts reject the setter.)
             b64 = Base64.base64encode(banner)
-            setup = "\$b=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$(b64)')); [Console]::Write(\$b)"
-            pty_spawn([shell, "-NoLogo", "-NoExit", "-Command", setup]; dir=dir, env=env)
+            setup = string(
+                "\$e=[Text.UTF8Encoding]::new(\$false); ",
+                "try{[Console]::OutputEncoding=\$e; [Console]::InputEncoding=\$e}catch{}; \$OutputEncoding=\$e; ",
+                "\$b=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$(b64)')); [Console]::Write(\$b)",
+            )
+            pty_spawn([shell, "-NoLogo", "-NoExit", "-Command", setup]; dir=dir, env=env, rows=rows, cols=cols)
         end
     else
         shell = get(ENV, "SHELL", Sys.isapple() ? "/bin/zsh" : "/bin/bash")
@@ -174,12 +185,12 @@ function _spawn_workspace_shell(session::ServerSession, dir::String)
         ], "; ")
         # a login shell, already cd'ed into the workspace, with the agent surface exported + a banner
         cmd = "cd $(_shquote(dir)) && $(exports); printf %s $(_shquote(banner)); exec $(_shquote(shell)) -l"
-        pty_spawn(["/bin/sh", "-c", cmd])
+        pty_spawn(["/bin/sh", "-c", cmd]; rows=rows, cols=cols)
     end
 end
 
 "Get the live terminal for this id, or (re)create one. The pump task forwards PTY output to every attached socket and maintains the scrollback ring."
-function _get_or_create_terminal(session::ServerSession, tid::String; requested_cwd::Union{Nothing,AbstractString}=nothing)::CollabTerminal
+function _get_or_create_terminal(session::ServerSession, tid::String; requested_cwd::Union{Nothing,AbstractString}=nothing, rows::Int=24, cols::Int=80)::CollabTerminal
     lock(COLLAB_TERMINALS_LOCK) do
         target = _resolve_terminal_cwd(session, requested_cwd)
         existing = get(COLLAB_TERMINALS, tid, nothing)
@@ -204,7 +215,7 @@ function _get_or_create_terminal(session::ServerSession, tid::String; requested_
         # shell and starts a new one with the same tid, and we must not let the retired shell's teardown
         # delete the new shell's pasted files.
         paste_dir = joinpath(tempdir(), "plutospace-paste-$(_safe_tid(tid))-$(time_ns())")
-        t = CollabTerminal(_spawn_workspace_shell(session, target), UInt8[], Set{Any}(), ReentrantLock(), @async(nothing), target, paste_dir)
+        t = CollabTerminal(_spawn_workspace_shell(session, target; rows=rows, cols=cols), UInt8[], Set{Any}(), ReentrantLock(), @async(nothing), target, paste_dir)
         t.pump = @asynclog begin
             for data in t.pty.output
                 lock(t.lock) do
@@ -246,8 +257,15 @@ end
 function handle_terminal_websocket(ws, session::ServerSession, query::Dict{String,String})
     tid = get(query, "tid", "default")
     cwd = get(query, "cwd", "")  # the workspace root the client is showing — the shell opens here
+    # The client's current geometry, so a NEW shell is born at the right size. Spawning at the
+    # 24×80 default and resizing on attach makes ConPTY repaint the whole viewport — which lands
+    # a duplicate of the banner/first frame in the client's scrollback on Windows.
+    q_rows = tryparse(Int, get(query, "rows", ""))
+    q_cols = tryparse(Int, get(query, "cols", ""))
+    sane = q_rows !== nothing && q_cols !== nothing && 1 < q_rows < 1000 && 9 < q_cols < 1000
     t = try
-        _get_or_create_terminal(session, tid; requested_cwd=(isempty(cwd) ? nothing : cwd))
+        _get_or_create_terminal(session, tid; requested_cwd=(isempty(cwd) ? nothing : cwd),
+                                rows=(sane ? q_rows : 24), cols=(sane ? q_cols : 80))
     catch e
         # Spawn failed (e.g. Windows older than 10 1809 has no ConPTY). Say so plainly instead
         # of letting the socket close into the frontend's "reload to reattach" message.

@@ -478,6 +478,9 @@ function register_collab_api!(router, session::ServerSession)
         body = _json(Pair[
             "tunneled" => haskey(ENV, "PLUTOSPACE_TUNNELED"),
             "pluto_version" => PLUTO_VERSION_STR,
+            # the integrated terminal's pty is ConPTY here — xterm.js needs to know to enable
+            # its Windows heuristics (see TerminalView in land.js)
+            "windows" => Sys.iswindows(),
         ])
         HTTP.Response(200, ["Content-Type" => "application/json; charset=utf-8"], body * "\n")
     end

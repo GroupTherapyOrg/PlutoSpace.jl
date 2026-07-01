@@ -276,6 +276,9 @@ pty_write(pty::PTY, s::String) = pty_write(pty, Vector{UInt8}(codeunits(s)))
 # ── Resize ──
 
 function pty_resize!(pty::PTY, rows::Int, cols::Int)
+    # ConPTY repaints the entire viewport on EVERY resize — a same-size resize (e.g. the client
+    # re-sending its geometry on attach) would stack a duplicate frame into the scrollback.
+    (rows == pty.rows && cols == pty.cols) && return
     pty.rows = rows
     pty.cols = cols
     ccall((:ResizePseudoConsole, "kernel32"), Clong,
